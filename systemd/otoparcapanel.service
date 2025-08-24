@@ -1,0 +1,36 @@
+[Unit]
+Description=Oto Parça Panel - Docker Compose Application
+Requires=docker.service
+After=docker.service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/otoparcapanel
+ExecStartPre=/usr/bin/docker-compose -f docker-compose.prod.yml down
+ExecStart=/usr/bin/docker-compose -f docker-compose.prod.yml up -d
+ExecStop=/usr/bin/docker-compose -f docker-compose.prod.yml down
+ExecReload=/usr/bin/docker-compose -f docker-compose.prod.yml restart
+TimeoutStartSec=300
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=10
+
+# Environment
+Environment=COMPOSE_PROJECT_NAME=otoparcapanel
+Environment=DOCKER_BUILDKIT=1
+Environment=COMPOSE_DOCKER_CLI_BUILD=1
+
+# Security
+User=root
+Group=docker
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=otoparcapanel
+
+[Install]
+WantedBy=multi-user.target

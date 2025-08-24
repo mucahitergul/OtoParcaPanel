@@ -1,0 +1,15 @@
+[Unit]
+Description=Oto Parça Panel - Daily Backup Timer
+Requires=otoparcapanel-backup.service
+
+[Timer]
+# Her gün saat 03:00'da çalış
+OnCalendar=daily
+Persistent=true
+AccuracySec=1min
+
+# İlk çalıştırma (servis başladıktan 10 dakika sonra)
+OnBootSec=10min
+
+[Install]
+WantedBy=timers.target

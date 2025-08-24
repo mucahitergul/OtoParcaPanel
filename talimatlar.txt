@@ -1,0 +1,223 @@
+<context>
+# Overview  
+Oto Yedek Parça Panel, otomotiv yedek parça satıcıları için geliştirilmiş kapsamlı bir stok ve fiyat takip sistemidir. Bu sistem, WooCommerce tabanlı e-ticaret sitelerinden ürün bilgilerini çekerek, üç farklı toptancı (Dinamik, Başbuğ, Doğuş) firmalarından gerçek zamanlı stok ve fiyat bilgilerini otomatik olarak sorgulayıp güncelleyen bir çözüm sunar. Sistem, manuel stok takibinin getirdiği zaman kaybını ve hata riskini ortadan kaldırarak, işletmelerin rekabetçi kalmasını sağlar.
+
+# Core Features  
+## WooCommerce Entegrasyonu
+- **Ne yapar**: WooCommerce REST API kullanarak ürün bilgilerini (stok kodu, ürün adı, stok, fiyat) otomatik çeker
+- **Neden önemli**: Manuel veri girişini ortadan kaldırır ve mevcut e-ticaret altyapısı ile sorunsuz entegrasyon sağlar
+- **Nasıl çalışır**: REST API bağlantısı ile sadece yeni ürünleri sisteme ekler, mevcut ürünlerde değişiklik yapmaz
+
+## Çoklu Toptancı Stok Sorgulama
+- **Ne yapar**: Dinamik, Başbuğ ve Doğuş firmalarından gerçek zamanlı stok ve fiyat bilgilerini sorgular
+- **Neden önemli**: En uygun fiyat ve stok durumunu karşılaştırarak optimal satın alma kararları verir
+- **Nasıl çalışır**: Python tabanlı PC Bot aracılığıyla toptancı web sitelerinden otomatik veri çekimi
+
+## Akıllı Güncelleme Sistemi
+- **Ne yapar**: Ürünleri en eski güncelleme tarihinden başlayarak sıralı şekilde günceller
+- **Neden önemli**: Sistem kaynaklarını verimli kullanır ve tüm ürünlerin güncel kalmasını sağlar
+- **Nasıl çalışır**: Güncelleme geçmişi takibi ile öncelik sıralaması yapar
+
+## Veri Yönetimi ve Raporlama
+- **Ne yapar**: Tüm ürün bilgilerini merkezi veritabanında saklar ve güncelleme geçmişini tutar
+- **Neden önemli**: Veri bütünlüğü sağlar ve analiz imkanı sunar
+- **Nasıl çalışır**: İlişkisel veritabanı yapısı ile veri saklama ve raporlama
+
+# User Experience  
+## Kullanıcı Profilleri
+- **Yedek Parça Satıcısı**: Ana kullanıcı, stok ve fiyat takibi yapar
+- **Sistem Yöneticisi**: Sistem ayarlarını ve entegrasyonları yönetir
+
+## Ana Kullanıcı Akışları
+1. **Ürün İçe Aktarma**: WooCommerce'den ürünleri sisteme çekme
+2. **Stok Sorgulama**: Belirli ürünler için toptancı bilgilerini görüntüleme
+3. **Toplu Güncelleme**: Tüm ürünler için otomatik güncelleme başlatma
+4. **Raporlama**: Güncelleme geçmişi ve stok durumu analizi
+
+## UI/UX Gereksinimleri
+- Responsive web tasarım
+- Kolay navigasyon ve arama özellikleri
+- Gerçek zamanlı durum göstergeleri
+- Kullanıcı dostu hata mesajları
+</context>
+
+<PRD>
+# Technical Architecture  
+## Sistem Bileşenleri
+### Web Panel (Frontend + Backend)
+- **Frontend**: Next.js (React framework with SSR/SSG)
+- **Styling**: Tailwind CSS 4
+- **Backend**: NestJS (Node.js framework with TypeScript)
+- **Veritabanı**: PostgreSQL
+- **API Gateway**: RESTful API servisleri
+- **Authentication**: JWT token tabanlı mail/şifre girişi
+
+### PC Bot (Python Servisi)
+- **Web Scraping Engine**: Selenium/BeautifulSoup
+- **API Server**: Flask/FastAPI
+- **Task Queue**: Celery/RQ
+- **Configuration Management**: JSON/YAML ayar dosyaları
+
+## Veri Modelleri
+### Ürünler Tablosu
+- id, woo_product_id, stok_kodu, urun_adi, stok_miktari, fiyat
+- created_at, updated_at
+
+### Toptancı Bilgileri Tablosu
+- id, urun_id, toptanci_adi (Dinamik/Başbuğ/Doğuş)
+- stok_durumu, fiyat, son_guncelleme
+- created_at, updated_at
+
+### Güncelleme Geçmişi Tablosu
+- id, urun_id, toptanci_adi, eski_fiyat, yeni_fiyat
+- eski_stok, yeni_stok, guncelleme_tarihi
+
+## API Entegrasyonları
+- **WooCommerce REST API**: Ürün bilgilerini çekme
+- **PC Bot API**: Toptancı sorgulama servisi
+- **Internal API**: Web panel ve PC Bot arası iletişim
+
+## Altyapı Gereksinimleri
+- **Web Server**: Apache/Nginx
+- **Database Server**: PostgreSQL 12+
+- **Python Environment**: Python 3.8+
+- **Browser Automation**: Chrome/Firefox WebDriver
+
+# Development Roadmap  
+## Faz 1: MVP - Temel Web Panel Altyapısı
+- Veritabanı şeması tasarımı ve oluşturma
+- Next.js + NestJS framework kurulumu
+- PostgreSQL bağlantısı ve konfigürasyonu
+- Temel API endpoint'leri
+- Proje klasör yapısı ve temel konfigürasyon
+
+## Faz 2: Kimlik Doğrulama ve Güvenlik
+- Mail ve şifre ile kullanıcı giriş sistemi
+- JWT token tabanlı authentication
+- Kullanıcı kayıt ve şifre sıfırlama
+- Session yönetimi
+- Güvenlik middleware'leri
+
+## Faz 3: WooCommerce Entegrasyonu
+- WooCommerce REST API bağlantısı
+- Ürün çekme ve senkronizasyon
+- Otomatik ürün güncelleme sistemi
+- Hata yönetimi ve logging
+- API rate limiting
+
+## Faz 4: Modern Kullanıcı Arayüzü
+- Tailwind CSS 4 entegrasyonu
+- Modern ve responsive tasarım
+- Ürün listesi ve detay sayfaları
+- Dashboard ve istatistikler
+- Kullanıcı dostu navigasyon
+
+## Faz 5: Gelişmiş Web Panel Özellikleri
+- Gelişmiş arama ve filtreleme
+- Toplu işlem özellikleri
+- Detaylı raporlama ve analitik
+- Veri dışa aktarma (Excel, CSV)
+- E-posta bildirimleri
+
+## Faz 6: PC Bot Geliştirme (En Son)
+- Python tabanlı web scraping bot
+- Toptancı web sitelerine giriş ve veri çekme
+- API servisi olarak PC Bot yapılandırması
+- Web panel ile PC Bot entegrasyonu
+- Akıllı güncelleme algoritması
+
+# Logical Dependency Chain
+## Temel Altyapı (Öncelik 1)
+1. Veritabanı şeması tasarımı ve oluşturma
+2. Next.js + NestJS framework kurulumu
+3. PostgreSQL bağlantısı ve konfigürasyonu
+4. Temel API endpoint'leri
+
+## Güvenlik ve Kimlik Doğrulama (Öncelik 2)
+1. Mail ve şifre ile kullanıcı giriş sistemi
+2. JWT token tabanlı authentication
+3. Kullanıcı kayıt ve şifre sıfırlama
+4. Güvenlik middleware'leri
+
+## WooCommerce Entegrasyonu (Öncelik 3)
+1. WooCommerce REST API bağlantısı
+2. Ürün çekme ve senkronizasyon
+3. Otomatik ürün güncelleme sistemi
+4. Hata yönetimi ve logging
+
+## Modern Arayüz Geliştirme (Öncelik 4)
+1. Tailwind CSS 4 entegrasyonu
+2. Modern ve responsive tasarım
+3. Ürün listesi ve detay sayfaları
+4. Dashboard ve kullanıcı deneyimi
+
+## Gelişmiş Özellikler (Öncelik 5)
+1. Gelişmiş arama ve filtreleme
+2. Raporlama ve analitik
+3. Veri dışa aktarma özellikleri
+4. E-posta bildirimleri
+
+## PC Bot Entegrasyonu (Öncelik 6 - En Son)
+1. Python PC Bot geliştirme
+2. Web scraping modülleri
+3. API servisi yapılandırması
+4. Web panel-bot entegrasyonu ve akıllı güncelleme
+
+# Risks and Mitigations  
+## Teknik Zorluklar
+**Risk**: Toptancı web sitelerinin yapısının değişmesi
+**Çözüm**: Modüler scraping yapısı ve kolay güncellenebilir konfigürasyon
+
+**Risk**: WooCommerce API limitleri
+**Çözüm**: Rate limiting ve batch processing implementasyonu
+
+**Risk**: PC Bot'un tespit edilmesi
+**Çözüm**: User-agent rotation, proxy kullanımı ve human-like behavior simulation
+
+## MVP Belirleme
+**Risk**: Özellik kapsamının çok geniş olması
+**Çözüm**: Temel ürün listesi ve tek toptancı sorgulaması ile başlama
+
+**Risk**: Karmaşık kullanıcı arayüzü
+**Çözüm**: Basit, fonksiyonel tasarım ile başlayıp iteratif geliştirme
+
+## Kaynak Kısıtları
+**Risk**: Geliştirme süresinin uzaması
+**Çözüm**: Agile metodoloji ve fazlı geliştirme yaklaşımı
+
+**Risk**: Performans sorunları
+**Çözüm**: Erken aşamada performans testleri ve optimizasyon
+
+# Appendix  
+## Teknik Spesifikasyonlar
+### Minimum Sistem Gereksinimleri
+- **Web Server**: 2GB RAM, 20GB Disk
+- **Database**: PostgreSQL 12+
+- **PC Bot**: Windows 10+, Python 3.8+, 4GB RAM
+
+### Veritabanı Konfigürasyonu
+- **DB_HOST**: localhost
+- **DB_PORT**: 5432
+- **DB_NAME**: carapp
+- **DB_USER**: postgres
+- **DB_PASS**: mucahit01.
+
+### Güvenlik Gereksinimleri
+- HTTPS zorunluluğu
+- API key authentication
+- SQL injection koruması
+- XSS koruması
+- Rate limiting
+
+### Performans Hedefleri
+- Sayfa yükleme süresi: <3 saniye
+- API response time: <1 saniye
+- Eşzamanlı kullanıcı: 50+
+- Bot sorgulama süresi: <30 saniye/ürün
+
+### Araştırma Bulguları
+- WooCommerce REST API v3 kullanımı önerilir
+- Selenium WebDriver en stabil scraping çözümü
+- PostgreSQL JSONB desteği ile esnek veri yapıları
+- Redis cache kullanımı response time'ı %40 iyileştirir
+</PRD>
