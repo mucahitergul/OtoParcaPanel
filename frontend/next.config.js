@@ -3,16 +3,12 @@ const nextConfig = {
   /* config options here */
   output: 'standalone',
   serverExternalPackages: [],
-  experimental: {
-    // Modül çözümleme sorunlarını gidermek için
-    esmExternals: 'loose',
-  },
   // Modül çözümleme için webpack yapılandırması
   webpack: (config, { isServer }) => {
     // Modül çözümleme için alias'ları ayarla
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': config.resolve.alias['@'] || require('path').resolve(__dirname, './src'),
+      '@': require('path').resolve(__dirname, './src'),
     };
     return config;
   },
