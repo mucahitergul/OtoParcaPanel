@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { 
   Bell, 
   Mail, 
-  Settings, 
-  Save, 
-  Test, 
+  Settings,
+  Save,
+  TestTube,
   AlertCircle, 
   CheckCircle, 
   Clock, 
@@ -340,7 +340,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
               {testingEmail ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
-                <Test className="h-4 w-4" />
+                <TestTube className="h-4 w-4" />
               )}
               {testingEmail ? 'Gönderiliyor...' : 'Test E-postası Gönder'}
             </button>

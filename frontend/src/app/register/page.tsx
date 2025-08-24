@@ -64,7 +64,7 @@ export default function RegisterPage() {
               Kayıt Ol
             </h2>
             <p className="text-gray-600">
-              Oto Yedek Parça Panel'e katılın
+              Oto Yedek Parça Panel&apos;e katılın
             </p>
           </div>
 

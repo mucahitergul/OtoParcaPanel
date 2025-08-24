@@ -87,8 +87,14 @@ export default function ProductsPage() {
   const [filters, setFilters] = useState({
     search: '',
     stockStatus: '' as '' | 'instock' | 'outofstock' | 'onbackorder',
-    hasStock: undefined as boolean | undefined,
+    priceRange: { min: '' as number | '', max: '' as number | '' },
+    stockRange: { min: '' as number | '', max: '' as number | '' },
+    dateRange: { from: '', to: '' },
+    categories: [] as string[],
     needsSync: false,
+    hasImages: null as boolean | null,
+    sortBy: 'updated' as 'name' | 'price' | 'stock' | 'updated' | 'created',
+    sortOrder: 'desc' as 'asc' | 'desc'
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -101,8 +107,9 @@ export default function ProductsPage() {
         limit: pagination.limit,
         search: filters.search || undefined,
         stockStatus: filters.stockStatus || undefined,
-        hasStock: filters.hasStock,
         needsSync: filters.needsSync || undefined,
+        priceMin: filters.priceRange.min || undefined,
+        priceMax: filters.priceRange.max || undefined,
       });
 
       if (response.data.success) {
@@ -261,9 +268,11 @@ export default function ProductsPage() {
       {/* Export Modal */}
       {showExportModal && (
         <ExportModal
-          selectedProducts={selectedProducts}
+          isOpen={showExportModal}
+          selectedCount={selectedProducts.length}
+          totalCount={products.length}
           onClose={() => setShowExportModal(false)}
-          onExport={(exportData) => {
+          onExport={async (exportData) => {
             console.log('Export data:', exportData);
             toast.success('Dışa aktarma başlatıldı');
             setShowExportModal(false);
@@ -279,23 +288,59 @@ export default function ProductsPage() {
       {/* Advanced Filters */}
       {showAdvancedFilters && (
         <AdvancedFilters
+          filters={filters}
+          isOpen={showAdvancedFilters}
+          onToggle={() => setShowAdvancedFilters(!showAdvancedFilters)}
           onFiltersChange={(advancedFilters) => {
             // Handle advanced filters
             console.log('Advanced filters:', advancedFilters);
+            setFilters(advancedFilters);
             // You can merge these with existing filters and refetch products
           }}
-          onClose={() => setShowAdvancedFilters(false)}
+          onApplyFilters={() => {
+            // Apply filters and refetch products
+            fetchProducts();
+          }}
+          onResetFilters={() => {
+             // Reset filters
+             setFilters({
+               search: '',
+               stockStatus: '',
+               priceRange: { min: '', max: '' },
+               stockRange: { min: '', max: '' },
+               dateRange: { from: '', to: '' },
+               categories: [],
+               needsSync: false,
+               hasImages: null,
+               sortBy: 'updated',
+               sortOrder: 'desc'
+             });
+             fetchProducts();
+           }}
         />
       )}
 
       {/* Bulk Actions */}
       {selectedProducts.length > 0 && (
         <BulkActions
-          selectedProducts={selectedProducts}
-          onClearSelection={() => setSelectedProducts([])}
-          onBulkSync={() => handleBulkAction('sync')}
-          onBulkDelete={() => handleBulkAction('delete')}
-          onExport={() => setShowExportModal(true)}
+          selectedItems={selectedProducts}
+          totalItems={products.length}
+          onSelectAll={toggleAllProducts}
+          onDeselectAll={() => setSelectedProducts([])}
+          onBulkSync={async (ids) => await handleBulkAction('sync')}
+          onBulkDelete={async (ids) => await handleBulkAction('delete')}
+          onBulkPriceUpdate={async (ids, price) => {
+            // Implement bulk price update
+            toast.success(`${ids.length} ürünün fiyatı güncellendi`);
+          }}
+          onBulkStockUpdate={async (ids, stock) => {
+            // Implement bulk stock update
+            toast.success(`${ids.length} ürünün stok miktarı güncellendi`);
+          }}
+          onBulkExport={async (ids, format) => {
+            // Implement bulk export
+            setShowExportModal(true);
+          }}
         />
       )}
     </div>

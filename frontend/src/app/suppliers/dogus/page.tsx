@@ -167,16 +167,16 @@ export default function DogusSupplierPage() {
       }
     } catch (error) {
       console.error('Error updating with scraper:', error);
-      let errorMessage = error.message || 'Bilinmeyen hata';
+      let errorMessage = (error as Error).message || 'Bilinmeyen hata';
       
       // Handle specific error types
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      if ((error as Error).name === 'TypeError' && (error as Error).message.includes('fetch')) {
         errorMessage = 'Scraper bot\'a bağlanılamıyor. Bot çalışıyor mu?';
-      } else if (error.message.includes('JSON')) {
+      } else if ((error as Error).message.includes('JSON')) {
         errorMessage = 'Scraper bot\'tan geçersiz yanıt alındı';
       }
       
-      toast.error(`${product.stok_kodu} güncellenirken hata: ${errorMessage}`);}]}}}
+      toast.error(`${product.stok_kodu} güncellenirken hata: ${errorMessage}`);
     } finally {
       setScrapingProduct(null);
     }

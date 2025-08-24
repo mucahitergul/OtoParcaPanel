@@ -47,12 +47,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   console.log('[AuthContext] 🔥 ULTRA RADICAL FIX: Checking token immediately in useState');
   
   // Check for token immediately during state initialization
-  const getInitialToken = () => {
+  const getInitialToken = (): string | null => {
     try {
       if (typeof window !== 'undefined') {
         const token = sessionStorage.getItem('auth_token') || Cookies.get('auth_token');
         console.log('[AuthContext] 📝 Initial token check:', token ? 'FOUND' : 'NOT_FOUND');
-        return token;
+        return token || null;
       }
     } catch (error) {
       console.log('[AuthContext] ❌ Initial token check error:', error);

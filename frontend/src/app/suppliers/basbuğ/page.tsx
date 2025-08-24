@@ -61,8 +61,8 @@ export default function BasbuğSupplierPage() {
       
       // Ürünleri güncelleme tarihine göre sırala (en eskiden en yeniye)
       const sortedProducts = [...filteredProducts].sort((a, b) => {
-        const dateA = a.basbug_last_updated ? new Date(a.basbug_last_updated).getTime() : 0;
-        const dateB = b.basbug_last_updated ? new Date(b.basbug_last_updated).getTime() : 0;
+        const dateA = a.basbuğ_last_updated ? new Date(a.basbuğ_last_updated).getTime() : 0;
+        const dateB = b.basbuğ_last_updated ? new Date(b.basbuğ_last_updated).getTime() : 0;
         return dateA - dateB; // En eski önce
       });
       
@@ -167,12 +167,12 @@ export default function BasbuğSupplierPage() {
       }
     } catch (error) {
       console.error('Error updating with scraper:', error);
-      let errorMessage = error.message || 'Bilinmeyen hata';
+      let errorMessage = (error as Error).message || 'Bilinmeyen hata';
       
       // Handle specific error types
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      if ((error as Error).name === 'TypeError' && (error as Error).message.includes('fetch')) {
         errorMessage = 'Scraper bot\'a bağlanılamıyor. Bot çalışıyor mu?';
-      } else if (error.message.includes('JSON')) {
+      } else if ((error as Error).message.includes('JSON')) {
         errorMessage = 'Scraper bot\'tan geçersiz yanıt alındı';
       }
       

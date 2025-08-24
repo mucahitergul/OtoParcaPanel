@@ -146,6 +146,9 @@ export default function DinamikSupplierPage() {
       let response;
       try {
         // Direct call to Python scraper (port 5000)
+        const controller1 = new AbortController();
+        const timeoutId1 = setTimeout(() => controller1.abort(), 10000);
+        
         response = await fetch('http://localhost:5000/scrape', {
           method: 'POST',
           headers: {
@@ -156,8 +159,10 @@ export default function DinamikSupplierPage() {
             stockCode: product.stok_kodu,
             supplier: 'Dinamik'
           }),
-          timeout: 10000,
+          signal: controller1.signal,
         });
+        
+        clearTimeout(timeoutId1);
       } catch (directError) {
          console.warn('Direct scraper call failed, trying backend proxy:', directError);
          // Fallback to backend proxy with authentication
@@ -171,6 +176,9 @@ export default function DinamikSupplierPage() {
            headers['Authorization'] = `Bearer ${token}`;
          }
          
+         const controller2 = new AbortController();
+         const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
+         
          response = await fetch('http://localhost:3001/api/scraper/request-update', {
            method: 'POST',
            headers,
@@ -178,7 +186,10 @@ export default function DinamikSupplierPage() {
              stockCode: product.stok_kodu,
              supplier: 'Dinamik'
            }),
+           signal: controller2.signal,
          });
+         
+         clearTimeout(timeoutId2);
        }
       
       // Check if response is actually JSON
@@ -198,7 +209,7 @@ export default function DinamikSupplierPage() {
       }
       
       if (response.ok) {
-        let scrapedData;
+        let scrapedData: any;
         
         // Handle different response formats (direct scraper vs backend proxy)
         if (result.success) {
@@ -234,12 +245,12 @@ export default function DinamikSupplierPage() {
       }
     } catch (error) {
       // Re-throw error to be handled by parent function
-      let errorMessage = error.message || 'Bilinmeyen hata';
+      let errorMessage = (error as Error).message || 'Bilinmeyen hata';
       
       // Handle specific error types
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      if ((error as Error).name === 'TypeError' && (error as Error).message.includes('fetch')) {
         errorMessage = 'Scraper bot\'a bağlanılamıyor. Bot çalışıyor mu?';
-      } else if (error.message.includes('JSON')) {
+      } else if ((error as Error).message.includes('JSON')) {
         errorMessage = 'Scraper bot\'tan geçersiz yanıt alındı';
       }
       
