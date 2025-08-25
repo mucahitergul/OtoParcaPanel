@@ -41,11 +41,11 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('DB_HOST') || 'localhost',
-        port: configService.get('DB_PORT') || 5432,
-        username: configService.get('DB_USER') || 'postgres',
-        password: configService.get('DB_PASS') || 'mucahit01.',
-        database: configService.get('DB_NAME') || 'otoparca_panel',
+        host: configService.get('DATABASE_HOST') || 'localhost',
+        port: configService.get('DATABASE_PORT') || 5432,
+        username: configService.get('DATABASE_USERNAME') || 'postgres',
+        password: configService.get('DATABASE_PASSWORD') || 'mucahit01.',
+        database: configService.get('DATABASE_NAME') || 'oto_parca_panel',
         entities: [
           User,
           Product,

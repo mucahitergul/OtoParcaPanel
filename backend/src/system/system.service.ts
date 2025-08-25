@@ -65,9 +65,9 @@ export class SystemService {
 
   private async checkPythonScraperStatus() {
     try {
-      // Python scraper'ın health endpoint'ini kontrol et
-      const response = await axios.get('http://localhost:3001/api/scraper/health', {
-        timeout: 3000,
+      // Python scraper'ın health endpoint'ini kontrol et (ayrı servis - port 5000)
+      const response = await axios.get('http://localhost:5000/health', {
+        timeout: 2000,
       });
 
       if (response.status === 200) {

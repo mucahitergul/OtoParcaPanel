@@ -53,14 +53,12 @@ export default function DashboardPage() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [productsResponse, systemStatusResponse] = await Promise.all([
-        fetch('/api/products/statistics'),
-        fetch('/api/system/status')
-      ]);
+      const productsResponse = await fetch('/api/products/statistics');
 
       if (productsResponse.ok) {
         const productsData = await productsResponse.json();
@@ -82,8 +80,26 @@ export default function DashboardPage() {
           syncRequired: 2,
         });
       }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      // Mock data for demo
+      setStats({
+        totalProducts: 5,
+        inStockProducts: 4,
+        outOfStockProducts: 1,
+        lowStockProducts: 1,
+        syncRequired: 2,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // System status check
+  const fetchSystemStatus = async () => {
+    try {
+      setStatusLoading(true);
+      const systemStatusResponse = await fetch('/api/system/status');
+
       if (systemStatusResponse.ok) {
         const statusData = await systemStatusResponse.json();
         setSystemStatus(statusData.data);
@@ -103,15 +119,7 @@ export default function DashboardPage() {
         });
       }
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      // Mock data for demo
-      setStats({
-        totalProducts: 5,
-        inStockProducts: 4,
-        outOfStockProducts: 1,
-        lowStockProducts: 1,
-        syncRequired: 2,
-      });
+      console.error('Error fetching system status:', error);
       setSystemStatus({
         woocommerce: {
           connected: false,
@@ -125,7 +133,7 @@ export default function DashboardPage() {
         }
       });
     } finally {
-      setLoading(false);
+      setStatusLoading(false);
     }
   };
 
@@ -151,7 +159,19 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    // İlk yükleme
     fetchDashboardData();
+    fetchSystemStatus();
+
+    // 10 saniyede bir sistem durumunu kontrol et
+    const statusInterval = setInterval(() => {
+      fetchSystemStatus();
+    }, 10000); // 10 saniye
+
+    // Cleanup function
+    return () => {
+      clearInterval(statusInterval);
+    };
   }, []);
 
   const quickActions: QuickAction[] = [
@@ -320,11 +340,11 @@ export default function DashboardPage() {
          <div className="flex items-center justify-between mb-6">
            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Sistem Durumu</h2>
            <button
-             onClick={fetchDashboardData}
-             disabled={loading}
+             onClick={fetchSystemStatus}
+             disabled={statusLoading}
              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-2 text-sm"
            >
-             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+             <RefreshCw className={`h-4 w-4 ${statusLoading ? 'animate-spin' : ''}`} />
              Yenile
            </button>
          </div>
@@ -403,4 +423,4 @@ export default function DashboardPage() {
        </div>
      </div>
    );
- }
+}

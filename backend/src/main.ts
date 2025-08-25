@@ -3,10 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { webcrypto } from 'crypto';
-
-// Make crypto available globally for TypeORM (Node.js 18 compatibility)
-(global as any).crypto = webcrypto;
+// Crypto is already available globally in Node.js 24+
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');

@@ -14,11 +14,11 @@ config();
 
 const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASS || 'mucahit01.',
-  database: process.env.DB_NAME || 'otoparca_panel',
+  host: process.env.DATABASE_HOST || 'localhost',
+  port: parseInt(process.env.DATABASE_PORT || '5432'),
+  username: process.env.DATABASE_USERNAME || 'postgres',
+  password: process.env.DATABASE_PASSWORD || '',
+  database: process.env.DATABASE_NAME || 'oto_parca_panel',
   entities: [User, Product, SupplierPrice, UpdateHistory, PriceHistory, StockHistory, Settings],
   synchronize: true, // Seeder çalıştırırken tabloları oluştur
   dropSchema: true, // Mevcut şemayı sil ve yeniden oluştur

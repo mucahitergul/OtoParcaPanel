@@ -1,58 +1,65 @@
-# 🚀 Oto Parça Panel - Otomotiv Yedek Parça Stok ve Fiyat Takip Sistemi
+# 🚀 Oto Parça Panel - Local Development
 
-[![Ubuntu 22.04 LTS](https://img.shields.io/badge/Ubuntu-22.04%20LTS-orange.svg)](https://ubuntu.com/)
-[![Docker](https://img.shields.io/badge/Docker-20.10+-blue.svg)](https://docker.com/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://postgresql.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+## 📋 Proje Hakkında
 
-## 📋 Proje Açıklaması
+Oto Parça Panel, otomotiv yedek parça satışı yapan işletmeler için geliştirilmiş modern bir web uygulamasıdır. Bu sistem, ürün yönetimi, stok takibi, müşteri yönetimi ve satış süreçlerini dijitalleştirerek işletmelerin verimliliğini artırmayı hedefler.
 
-Oto Parça Panel, otomotiv yedek parça satıcıları için geliştirilmiş **enterprise-grade** stok ve fiyat takip sistemidir. Sistem, tedarikçi fiyatlarını otomatik olarak takip eder, stok durumlarını günceller ve WooCommerce entegrasyonu ile e-ticaret sitelerinizi senkronize eder.
+## 🚀 Local Development Kurulumu
 
-## ⚡ Hızlı Kurulum - Hetzner Cloud Ubuntu 22.04 LTS
+### Ön Gereksinimler
 
-### 🎯 Tek Komutla Tam Kurulum (5-10 Dakika)
+- Node.js 18+ 
+- PostgreSQL 15+
+- npm veya yarn
+- Git
+
+### 1. Projeyi Klonlayın
 
 ```bash
-# Hetzner Cloud Ubuntu 22.04 sunucusunda tek komut ile kurulum:
-wget -O hetzner-install.sh https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/hetzner-install.sh
-chmod +x hetzner-install.sh
-sudo ./hetzner-install.sh yourdomain.com
+git clone https://github.com/mucahitergul/OtoParcaPanel.git
+cd OtoParcaPanel
 ```
 
-**Kurulum sırasında sadece 2 bilgi istenir:**
-1. 🌐 **Domain adınız** (örn: otoparca.example.com)
-2. 📧 **Email adresiniz** (SSL sertifikası için)
+### 2. Environment Variables Ayarlayın
 
-**Kurulum otomatik olarak:**
-- ✅ Tüm bağımlılıkları kurar (Docker, PostgreSQL, Redis, Nginx)
-- ✅ Port çakışmalarını tespit eder ve çözer
-- ✅ Let's Encrypt SSL sertifikası oluşturur
-- ✅ Güvenli şifreler üretir ve yapılandırır
-- ✅ Production-ready servisleri başlatır
-- ✅ Health check ve monitoring kurar
-- ✅ Otomatik backup sistemi yapılandırır
-
-**Kurulum sonrası siteniz hazır:** `https://yourdomain.com` 🎉
-
-### 🔒 SSL Kurulum Seçenekleri
-
-**Production (Let's Encrypt - Önerilen):**
 ```bash
-# Ana domain ile kurulum
-sudo ./hetzner-install.sh otoparca.com
+# .env dosyasını oluşturun
+cp .env.example .env
 
-# Subdomain ile kurulum
-sudo ./hetzner-install.sh panel.otoparca.com
-sudo ./hetzner-install.sh api.otoparca.com
+# .env dosyasını düzenleyin ve gerekli değerleri doldurun
 ```
 
-**Development (Self-Signed):**
+### 3. PostgreSQL Database Oluşturun
+
+```sql
+-- PostgreSQL'e bağlanın ve database oluşturun
+CREATE DATABASE oto_parca_panel;
+CREATE USER oto_user WITH PASSWORD 'password123';
+GRANT ALL PRIVILEGES ON DATABASE oto_parca_panel TO oto_user;
+```
+
+### 4. Backend Kurulumu
+
 ```bash
-# Domain parametresi olmadan
-sudo ./hetzner-install.sh
+cd backend
+npm install
+npm run build
+npm run start:dev
 ```
+
+### 5. Frontend Kurulumu
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### 6. Uygulamaya Erişim
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
+- **API Dokümantasyonu**: http://localhost:3001/api/docs
 
 ## 🛠️ Teknoloji Stack
 
