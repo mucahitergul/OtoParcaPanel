@@ -14,7 +14,12 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: [
+      'http://localhost:3000', 
+      'http://localhost:3001',
+      'http://otoparca.isletmemdijitalde.com',
+      'https://otoparca.isletmemdijitalde.com'
+    ],
     credentials: true,
   });
 
