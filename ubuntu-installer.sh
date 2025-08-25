@@ -116,23 +116,34 @@ update_progress() {
 # UTILITY FUNCTIONS
 # =============================================================================
 
-# Komut çalıştırma (retry ile)
+# Komut çalıştırma (retry ve timeout ile)
 run_command() {
     local cmd="$1"
     local description="$2"
     local max_retries=${3:-3}
     local retry_delay=${4:-2}
+    local timeout=${5:-300}  # 5 dakika default timeout
     
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] EXEC: $cmd" >> "$LOG_FILE"
     echo "$cmd" >> "$ROLLBACK_FILE"
     
     for ((i=1; i<=max_retries; i++)); do
-        if eval "$cmd" >> "$LOG_FILE" 2>&1; then
+        info "$description (deneme $i/$max_retries)..."
+        
+        # Timeout ile komut çalıştır
+        if timeout "$timeout" bash -c "$cmd" >> "$LOG_FILE" 2>&1; then
             log "$description"
             return 0
         else
+            local exit_code=$?
+            if [[ $exit_code -eq 124 ]]; then
+                warn "$description timeout oldu (${timeout}s). Deneme $i/$max_retries"
+            else
+                warn "$description başarısız (exit code: $exit_code). Deneme $i/$max_retries"
+            fi
+            
             if [[ $i -lt $max_retries ]]; then
-                warn "$description başarısız (deneme $i/$max_retries). ${retry_delay}s sonra tekrar denenecek..."
+                warn "${retry_delay}s sonra tekrar denenecek..."
                 sleep $retry_delay
             else
                 error "$description $max_retries denemeden sonra başarısız. Log: $LOG_FILE"
@@ -141,18 +152,24 @@ run_command() {
     done
 }
 
-# Güvenli komut çalıştırma
+# Güvenli komut çalıştırma (timeout ile)
 run_command_safe() {
     local cmd="$1"
     local description="$2"
+    local timeout=${3:-60}  # 1 dakika default timeout
     
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] SAFE_EXEC: $cmd" >> "$LOG_FILE"
     
-    if eval "$cmd" >> "$LOG_FILE" 2>&1; then
+    if timeout "$timeout" bash -c "$cmd" >> "$LOG_FILE" 2>&1; then
         log "$description"
         return 0
     else
-        warn "$description başarısız ama devam ediliyor..."
+        local exit_code=$?
+        if [[ $exit_code -eq 124 ]]; then
+            warn "$description timeout oldu (${timeout}s) ama devam ediliyor..."
+        else
+            warn "$description başarısız (exit code: $exit_code) ama devam ediliyor..."
+        fi
         return 1
     fi
 }
@@ -403,28 +420,47 @@ prevent_port_conflicts() {
 install_docker() {
     update_progress "Docker kurulumu yapılıyor..."
     
+    # Network bağlantı kontrolü
+    info "Network bağlantısı kontrol ediliyor..."
+    if ! curl -s --connect-timeout 10 https://download.docker.com > /dev/null; then
+        warn "Docker sunucusuna bağlantı sorunu. Alternatif yöntem denenecek."
+    fi
+    
     # Eski Docker sürümlerini kaldır
     run_command_safe "apt remove -y docker docker-engine docker.io containerd runc" "Eski Docker sürümleri kaldırıldı"
     
-    # Docker GPG anahtarını ekle
-    run_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg" "Docker GPG anahtarı eklendi"
+    # Docker GPG anahtarını ekle (timeout: 60s)
+    info "Docker GPG anahtarı indiriliyor..."
+    if ! run_command "curl -fsSL --connect-timeout 30 --max-time 60 https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg" "Docker GPG anahtarı eklendi" 3 5 60; then
+        warn "Docker GPG anahtarı indirilemedi. Alternatif yöntem deneniyor..."
+        run_command "wget -qO- https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg" "Docker GPG anahtarı (wget ile) eklendi" 2 3 60
+    fi
     
     # Docker repository'sini ekle
-    run_command "echo 'deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable' | tee /etc/apt/sources.list.d/docker.list > /dev/null" "Docker repository eklendi"
+    info "Docker repository ekleniyor..."
+    run_command "echo 'deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable' | tee /etc/apt/sources.list.d/docker.list > /dev/null" "Docker repository eklendi" 2 2 30
     
     # Paket listesini güncelle
-    run_command "apt update" "Paket listesi güncellendi"
+    info "Paket listesi güncelleniyor..."
+    run_command "apt update" "Paket listesi güncellendi" 3 3 120
     
-    # Docker'ı yükle
-    run_command "DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin" "Docker yüklendi"
+    # Docker'ı yükle (uzun sürebilir)
+    info "Docker paketleri yükleniyor... (Bu işlem birkaç dakika sürebilir)"
+    run_command "DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin" "Docker yüklendi" 2 5 600
     
     # Docker servisini başlat
-    run_command "systemctl enable docker" "Docker servisi etkinleştirildi"
-    run_command "systemctl start docker" "Docker servisi başlatıldı"
+    info "Docker servisi başlatılıyor..."
+    run_command "systemctl enable docker" "Docker servisi etkinleştirildi" 2 2 30
+    run_command "systemctl start docker" "Docker servisi başlatıldı" 2 3 60
     
     # Docker Compose kurulumu
-    run_command "curl -L 'https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)' -o /usr/local/bin/docker-compose" "Docker Compose indirildi"
-    run_command "chmod +x /usr/local/bin/docker-compose" "Docker Compose çalıştırılabilir yapıldı"
+    info "Docker Compose indiriliyor..."
+    if ! run_command "curl -L --connect-timeout 30 --max-time 120 'https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)' -o /usr/local/bin/docker-compose" "Docker Compose indirildi" 2 3 120; then
+        warn "Docker Compose indirilemedi. Paket yöneticisi ile kuruluyor..."
+        run_command "apt install -y docker-compose" "Docker Compose (apt ile) yüklendi" 2 3 180
+    else
+        run_command "chmod +x /usr/local/bin/docker-compose" "Docker Compose çalıştırılabilir yapıldı" 1 1 10
+    fi
     
     # Docker kullanıcı grubuna ekle
     if [[ -n "${SUDO_USER:-}" ]]; then
@@ -432,8 +468,23 @@ install_docker() {
     fi
     
     # Docker test
-    run_command "docker --version" "Docker sürümü kontrol edildi"
-    run_command "docker-compose --version" "Docker Compose sürümü kontrol edildi"
+    info "Docker kurulumu test ediliyor..."
+    run_command "docker --version" "Docker sürümü kontrol edildi" 2 2 30
+    
+    # Docker Compose sürüm kontrolü
+    if command -v docker-compose &> /dev/null; then
+        run_command "docker-compose --version" "Docker Compose sürümü kontrol edildi" 2 2 30
+    elif docker compose version &> /dev/null; then
+        log "Docker Compose (plugin) sürümü kontrol edildi"
+    else
+        warn "Docker Compose kurulumu doğrulanamadı"
+    fi
+    
+    # Docker daemon test
+    info "Docker daemon test ediliyor..."
+    run_command "docker info" "Docker daemon çalışıyor" 2 3 60
+    
+    success "Docker kurulumu başarıyla tamamlandı"
 }
 
 install_nginx() {
