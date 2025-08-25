@@ -569,15 +569,15 @@ find_project_directory() {
     for path in "${search_paths[@]}"; do
         if [[ -d "$path" ]]; then
             info "   📁 Kontrol ediliyor: $path"
-            if [[ -f "$path/package.json" && -d "$path/frontend" && -d "$path/backend" ]]; then
+            if [[ -d "$path/frontend" && -d "$path/backend" && -f "$path/docker-compose.yml" ]]; then
                 success "   ✅ Proje dosyaları bulundu: $path"
                 echo "$path"
                 return 0
             else
                 local missing_files=()
-                [[ ! -f "$path/package.json" ]] && missing_files+=("package.json")
                 [[ ! -d "$path/frontend" ]] && missing_files+=("frontend/")
                 [[ ! -d "$path/backend" ]] && missing_files+=("backend/")
+                [[ ! -f "$path/docker-compose.yml" ]] && missing_files+=("docker-compose.yml")
                 warn "   ❌ Eksik dosyalar ($path): ${missing_files[*]}"
             fi
         else
@@ -604,7 +604,7 @@ find_project_directory() {
             
             if [[ -n "$found_dirs" ]]; then
                 while IFS= read -r dir; do
-                    if [[ -f "$dir/package.json" && -d "$dir/frontend" && -d "$dir/backend" ]]; then
+                    if [[ -d "$dir/frontend" && -d "$dir/backend" && -f "$dir/docker-compose.yml" ]]; then
                         success "   ✅ find ile proje bulundu: $dir"
                         echo "$dir"
                         return 0
@@ -616,21 +616,21 @@ find_project_directory() {
         fi
     done
     
-    # Son çare: package.json dosyasını ara
-    info "🔍 package.json dosyası aranıyor..."
-    local package_files
-    package_files=$(find /root /home /opt /tmp -name "package.json" -path "*/OtoParcaPanel/*" 2>/dev/null | head -5 || true)
+    # Son çare: docker-compose.yml dosyasını ara
+    info "🔍 docker-compose.yml dosyası aranıyor..."
+    local compose_files
+    compose_files=$(find /root /home /opt /tmp -name "docker-compose.yml" -path "*/OtoParcaPanel/*" 2>/dev/null | head -5 || true)
     
-    if [[ -n "$package_files" ]]; then
-        while IFS= read -r package_file; do
-            local package_dir="$(dirname "$package_file")"
-            info "   📦 package.json bulundu: $package_dir"
-            if [[ -d "$package_dir/frontend" && -d "$package_dir/backend" ]]; then
-                success "   ✅ Tam proje bulundu: $package_dir"
-                echo "$package_dir"
+    if [[ -n "$compose_files" ]]; then
+        while IFS= read -r compose_file; do
+            local compose_dir="$(dirname "$compose_file")"
+            info "   📦 docker-compose.yml bulundu: $compose_dir"
+            if [[ -d "$compose_dir/frontend" && -d "$compose_dir/backend" ]]; then
+                success "   ✅ Tam proje bulundu: $compose_dir"
+                echo "$compose_dir"
                 return 0
             fi
-        done <<< "$package_files"
+        done <<< "$compose_files"
     fi
     
     warn "❌ Hiçbir konumda tam proje dosyaları bulunamadı"
@@ -651,14 +651,16 @@ setup_project() {
     
     # Dosya kontrollerini tek tek yap ve sonuçları göster
     info "🔍 Dosya kontrolleri:"
-    [[ -f "$current_dir/package.json" ]] && info "   ✅ package.json bulundu" || warn "   ❌ package.json bulunamadı"
     [[ -d "$current_dir/frontend" ]] && info "   ✅ frontend/ dizini bulundu" || warn "   ❌ frontend/ dizini bulunamadı"
     [[ -d "$current_dir/backend" ]] && info "   ✅ backend/ dizini bulundu" || warn "   ❌ backend/ dizini bulunamadı"
+    [[ -f "$current_dir/frontend/package.json" ]] && info "   ✅ frontend/package.json bulundu" || warn "   ❌ frontend/package.json bulunamadı"
+    [[ -f "$current_dir/backend/package.json" ]] && info "   ✅ backend/package.json bulundu" || warn "   ❌ backend/package.json bulunamadı"
+    [[ -f "$current_dir/docker-compose.yml" ]] && info "   ✅ docker-compose.yml bulundu" || warn "   ❌ docker-compose.yml bulunamadı"
     [[ -d "$current_dir/scraper" ]] && info "   ✅ scraper/ dizini bulundu" || warn "   ❌ scraper/ dizini bulunamadı (opsiyonel)"
     
-    # Eğer mevcut dizinde dosyalar bulunamazsa akıllı arama yap
-    if [[ ! -f "$current_dir/package.json" || ! -d "$current_dir/frontend" || ! -d "$current_dir/backend" ]]; then
-        warn "⚠️  Mevcut dizinde proje dosyaları eksik, alternatif konumlar aranıyor..."
+    # Temel proje dosyalarının varlığını kontrol et
+    if [[ ! -d "$current_dir/frontend" || ! -d "$current_dir/backend" || ! -f "$current_dir/docker-compose.yml" ]]; then
+        warn "⚠️  Temel proje dosyaları eksik, alternatif konumlar aranıyor..."
         
         local project_dir
         if project_dir=$(find_project_directory); then
@@ -681,9 +683,11 @@ setup_project() {
             fi
             error ""
             error "📋 Gerekli dosyalar:"
-            error "   ✓ package.json (ana proje dosyası)"
             error "   ✓ frontend/ (React/Next.js uygulaması)"
             error "   ✓ backend/ (Node.js API sunucusu)"
+            error "   ✓ frontend/package.json (Frontend bağımlılıkları)"
+            error "   ✓ backend/package.json (Backend bağımlılıkları)"
+            error "   ✓ docker-compose.yml (Docker yapılandırması)"
             error "   • scraper/ (Python scraper - opsiyonel)"
             error ""
             error "🔧 Çözüm Adımları:"
@@ -713,6 +717,20 @@ setup_project() {
             error ""
             exit 1
         fi
+    fi
+    
+    # Frontend ve backend package.json kontrolü
+    if [[ ! -f "$current_dir/frontend/package.json" || ! -f "$current_dir/backend/package.json" ]]; then
+        error "❌ Frontend veya backend package.json dosyaları eksik!"
+        error "📋 Kontrol edilen konum: $current_dir"
+        [[ ! -f "$current_dir/frontend/package.json" ]] && error "   ❌ frontend/package.json bulunamadı"
+        [[ ! -f "$current_dir/backend/package.json" ]] && error "   ❌ backend/package.json bulunamadı"
+        error ""
+        error "🔧 Çözüm:"
+        error "   1. Proje dosyalarının tam olarak indirildiğinden emin olun"
+        error "   2. git pull origin main komutu ile güncellemeleri çekin"
+        error "   3. frontend/ ve backend/ dizinlerinde package.json dosyalarının varlığını kontrol edin"
+        exit 1
     fi
     
     success "✅ Proje dosyaları tespit edildi!"
@@ -774,11 +792,6 @@ setup_project() {
     info "✅ Kopyalama doğrulaması yapılıyor..."
     local verification_failed=false
     
-    if [[ ! -f "$INSTALL_DIR/package.json" ]]; then
-        error "   ❌ package.json kopyalanamadı"
-        verification_failed=true
-    fi
-    
     if [[ ! -d "$INSTALL_DIR/frontend" ]]; then
         error "   ❌ frontend/ dizini kopyalanamadı"
         verification_failed=true
@@ -786,6 +799,21 @@ setup_project() {
     
     if [[ ! -d "$INSTALL_DIR/backend" ]]; then
         error "   ❌ backend/ dizini kopyalanamadı"
+        verification_failed=true
+    fi
+    
+    if [[ ! -f "$INSTALL_DIR/frontend/package.json" ]]; then
+        error "   ❌ frontend/package.json kopyalanamadı"
+        verification_failed=true
+    fi
+    
+    if [[ ! -f "$INSTALL_DIR/backend/package.json" ]]; then
+        error "   ❌ backend/package.json kopyalanamadı"
+        verification_failed=true
+    fi
+    
+    if [[ ! -f "$INSTALL_DIR/docker-compose.yml" ]]; then
+        error "   ❌ docker-compose.yml kopyalanamadı"
         verification_failed=true
     fi
     
@@ -1261,8 +1289,18 @@ validate_installation() {
     local validation_errors=0
     
     # Proje dosyalarını kontrol et
-    if [[ ! -f "$INSTALL_DIR/package.json" ]]; then
-        warn "Ana package.json dosyası bulunamadı"
+    if [[ ! -f "$INSTALL_DIR/frontend/package.json" ]]; then
+        warn "Frontend package.json dosyası bulunamadı"
+        ((validation_errors++))
+    fi
+    
+    if [[ ! -f "$INSTALL_DIR/backend/package.json" ]]; then
+        warn "Backend package.json dosyası bulunamadı"
+        ((validation_errors++))
+    fi
+    
+    if [[ ! -f "$INSTALL_DIR/docker-compose.yml" ]]; then
+        warn "docker-compose.yml dosyası bulunamadı"
         ((validation_errors++))
     fi
     
