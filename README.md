@@ -13,6 +13,10 @@ Oto Parça Panel, otomotiv yedek parça satıcıları için geliştirilmiş kaps
 - **Responsive Tasarım**: Masaüstü ve mobil uyumlu modern arayüz
 - **Real-time Updates**: Anlık fiyat ve stok güncellemeleri
 - **Bulk Operations**: Toplu fiyat güncelleme ve stok yönetimi
+- **🆕 Otomatik Port Yönetimi**: Port çakışması tespiti ve otomatik çözüm
+- **🆕 CORS Optimizasyonu**: Production domain için optimize edilmiş CORS ayarları
+- **🆕 Gelişmiş Kurulum**: Tek komutla otomatik kurulum ve yapılandırma
+- **🆕 Port Manager**: Kapsamlı port yönetim ve monitoring aracı
 
 ## 🛠️ Teknoloji Stack
 
@@ -100,6 +104,14 @@ chmod +x install.sh
 ./install.sh
 ```
 
+#### 🆕 Gelişmiş Kurulum Özellikleri
+
+- **Otomatik Port Çakışması Tespiti**: Kullanılan portları tespit eder ve çözüm önerir
+- **Production Domain Yapılandırması**: HTTPS domain'i otomatik olarak yapılandırır
+- **CORS Optimizasyonu**: Production ortamı için CORS ayarlarını optimize eder
+- **Güvenlik Kontrolü**: Sistem gereksinimlerini ve güvenlik ayarlarını kontrol eder
+- **Otomatik SSL**: Let's Encrypt ile otomatik SSL sertifikası kurulumu
+
 ### 4. Manuel Kurulum
 
 #### 4.1 Docker ve Docker Compose Kurulumu
@@ -178,6 +190,10 @@ nano backend/.env
 
 **Backend .env dosyası:**
 ```env
+# Domain Configuration (🆕 Production Domain)
+DOMAIN_NAME=otoparca.isletmemdijitalde.com
+SSL_EMAIL=admin@otoparca.isletmemdijitalde.com
+
 # Database
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
@@ -193,8 +209,9 @@ JWT_EXPIRES_IN=7d
 PORT=3001
 NODE_ENV=production
 
-# CORS
-FRONTEND_URL=https://yourdomain.com
+# CORS (🆕 Production Optimized)
+FRONTEND_URL=https://otoparca.isletmemdijitalde.com
+CORS_ORIGINS=https://otoparca.isletmemdijitalde.com
 
 # WooCommerce
 WOOCOMMERCE_URL=https://your-woocommerce-site.com
@@ -210,10 +227,15 @@ nano frontend/.env.local
 
 **Frontend .env.local dosyası:**
 ```env
-NEXT_PUBLIC_API_URL=https://yourdomain.com/api
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
+# 🆕 Production Domain Configuration
+NEXT_PUBLIC_API_URL=https://otoparca.isletmemdijitalde.com/api
+NEXT_PUBLIC_APP_URL=https://otoparca.isletmemdijitalde.com
 NEXTAUTH_SECRET=your_nextauth_secret_here
-NEXTAUTH_URL=https://yourdomain.com
+NEXTAUTH_URL=https://otoparca.isletmemdijitalde.com
+
+# 🆕 CORS Optimized URLs
+NEXT_PUBLIC_BACKEND_URL=https://otoparca.isletmemdijitalde.com
+NEXT_PUBLIC_SCRAPER_URL=https://otoparca.isletmemdijitalde.com/scraper
 ```
 
 #### 5.2 Bağımlılıkları Yükleme
@@ -253,17 +275,17 @@ nano /etc/nginx/sites-available/oto-parca-panel
 ```nginx
 server {
     listen 80;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name otoparca.isletmemdijitalde.com www.otoparca.isletmemdijitalde.com;
     return 301 https://$server_name$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name otoparca.isletmemdijitalde.com www.otoparca.isletmemdijitalde.com;
 
     # SSL sertifikaları (Let's Encrypt ile oluşturun)
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/otoparca.isletmemdijitalde.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/otoparca.isletmemdijitalde.com/privkey.pem;
 
     # SSL ayarları
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -296,15 +318,45 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
+    # 🆕 Backend API (NestJS) - CORS Optimized
+    location /api {
+        # CORS headers for production domain
+        add_header 'Access-Control-Allow-Origin' 'https://otoparca.isletmemdijitalde.com' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' 'https://otoparca.isletmemdijitalde.com';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+            add_header 'Access-Control-Allow-Credentials' 'true';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+        
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
     # Python Scraper (Remote bağlantı için CORS ayarları)
     location /scraper {
         # Remote scraper için CORS headers
-        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Origin' 'https://otoparca.isletmemdijitalde.com' always;
         add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
         add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
         
         if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Allow-Origin' 'https://otoparca.isletmemdijitalde.com';
             add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
             add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
             add_header 'Access-Control-Max-Age' 1728000;
@@ -351,7 +403,7 @@ systemctl reload nginx
 apt install -y certbot python3-certbot-nginx
 
 # SSL sertifikası oluşturma
-certbot --nginx -d yourdomain.com -d www.yourdomain.com
+certbot --nginx -d otoparca.isletmemdijitalde.com -d www.otoparca.isletmemdijitalde.com
 
 # Otomatik yenileme
 crontab -e
@@ -404,6 +456,50 @@ pm2 save
 pm2 startup
 ```
 
+## 🔧 Port Yönetimi ve Çakışma Çözümü
+
+### 🆕 Port Manager Aracı
+
+Yeni `port-manager.sh` scripti ile port yönetimi ve çakışma çözümü:
+
+```bash
+# Port durumunu kontrol et
+./port-manager.sh status
+
+# Çakışan portları tespit et
+./port-manager.sh check
+
+# Çakışan portları temizle
+./port-manager.sh cleanup
+
+# Alternatif portları göster
+./port-manager.sh alternatives
+
+# Tüm portları temizle
+./port-manager.sh kill-all
+```
+
+#### Port Manager Özellikleri
+
+- **Kapsamlı Port Analizi**: Tüm kullanılan portları PID ile birlikte listeler
+- **Çakışma Tespiti**: Proje portları (80, 443, 3000, 3001, 5000, 5432, 6379) için çakışma kontrolü
+- **Güvenli Temizleme**: SIGTERM → SIGKILL sırası ile güvenli process sonlandırma
+- **Alternatif Önerileri**: Kullanılabilir alternatif portları önerir
+- **Zombie Process Temizleme**: Ölü process'leri temizler
+
+### 🆕 Gelişmiş Servis Yönetimi
+
+```bash
+# Servisleri port kontrolü ile başlat
+./start-services.sh production start
+
+# Port çakışması durumunda otomatik çözüm
+./start-services.sh production restart --force
+
+# Detaylı port durumu raporu
+./start-services.sh production status --detailed
+```
+
 ## 🐍 Local Python Scraper Kurulumu
 
 **ÖNEMLİ**: Python scraper artık sunucuda değil, local bilgisayarınızda çalışacak ve sunucuya remote bağlantı yapacaktır.
@@ -453,9 +549,9 @@ nano .env
 
 **Scraper .env dosyası:**
 ```env
-# Remote sunucu bilgileri
-REMOTE_SERVER_URL=https://yourdomain.com
-REMOTE_API_URL=https://yourdomain.com/api
+# 🆕 Production Domain Configuration
+REMOTE_SERVER_URL=https://otoparca.isletmemdijitalde.com
+REMOTE_API_URL=https://otoparca.isletmemdijitalde.com/api
 
 # Flask ayarları
 FLASK_HOST=0.0.0.0
@@ -466,6 +562,10 @@ FLASK_ENV=development
 SCRAPER_TIMEOUT=30
 SCRAPER_RETRY_COUNT=3
 SCRAPER_DELAY=2
+
+# 🆕 CORS Configuration
+CORS_ORIGINS=https://otoparca.isletmemdijitalde.com
+CORS_METHODS=GET,POST,OPTIONS
 
 # Log ayarları
 LOG_LEVEL=INFO
@@ -525,8 +625,8 @@ tail -f scraper.log
 ps aux | grep python
 
 # Network bağlantısını test edin
-ping yourdomain.com
-telnet yourdomain.com 443
+ping otoparca.isletmemdijitalde.com
+telnet otoparca.isletmemdijitalde.com 443
 ```
 
 ### 7. Troubleshooting
@@ -534,13 +634,19 @@ telnet yourdomain.com 443
 #### Bağlantı Sorunları:
 ```bash
 # DNS çözümleme testi
-nslookup yourdomain.com
+nslookup otoparca.isletmemdijitalde.com
 
 # SSL sertifika kontrolü
-openssl s_client -connect yourdomain.com:443
+openssl s_client -connect otoparca.isletmemdijitalde.com:443
 
-# CORS hatası durumunda backend loglarını kontrol edin
+# 🆕 CORS hatası durumunda backend loglarını kontrol edin
 docker logs oto-parca-backend
+
+# 🆕 CORS ayarlarını kontrol et
+curl -H "Origin: https://otoparca.isletmemdijitalde.com" \
+     -H "Access-Control-Request-Method: POST" \
+     -H "Access-Control-Request-Headers: X-Requested-With" \
+     -X OPTIONS https://otoparca.isletmemdijitalde.com/api/auth/login
 ```
 
 #### Python Hataları:
@@ -625,6 +731,41 @@ python main_console.py
 
 ## 🔍 Troubleshooting
 
+### 🆕 CORS Sorunları
+
+#### CORS Policy Hatası
+```bash
+# Backend CORS ayarlarını kontrol et
+grep -r "enableCors" backend/src/
+grep -r "origin" backend/src/main.ts
+
+# Frontend environment kontrolü
+cat frontend/.env.local | grep API_URL
+
+# Nginx CORS ayarlarını test et
+curl -H "Origin: https://otoparca.isletmemdijitalde.com" \
+     -H "Access-Control-Request-Method: POST" \
+     -H "Access-Control-Request-Headers: Content-Type,Authorization" \
+     -X OPTIONS https://otoparca.isletmemdijitalde.com/api/auth/login -v
+
+# Backend loglarında CORS hatalarını kontrol et
+docker logs oto-parca-backend | grep -i cors
+pm2 logs oto-parca-backend | grep -i cors
+```
+
+#### CORS Ayarlarını Düzeltme
+```bash
+# Backend main.ts dosyasını kontrol et
+cat backend/src/main.ts | grep -A 10 "enableCors"
+
+# Nginx konfigürasyonunu yeniden yükle
+nginx -t
+sudo systemctl reload nginx
+
+# Environment dosyalarını güncelle
+./port-manager.sh check-cors
+```
+
 ### Yaygın Sorunlar
 
 #### 1. Database Connection Error
@@ -636,14 +777,24 @@ sudo systemctl status postgresql
 psql -h localhost -U oto_user -d oto_parca_panel
 ```
 
-#### 2. Port Çakışması
+#### 2. Port Çakışması (🆕 Gelişmiş Çözüm)
 ```bash
-# Kullanılan portları kontrol edin
+# 🆕 Port Manager ile otomatik çözüm
+./port-manager.sh cleanup
+
+# Manuel port kontrolü
 sudo netstat -tlnp | grep :3000
 sudo netstat -tlnp | grep :3001
 sudo netstat -tlnp | grep :5000
 
-# Process'i sonlandırın
+# 🆕 Güvenli process sonlandırma
+./port-manager.sh kill 3000
+./port-manager.sh kill 3001
+
+# 🆕 Alternatif port önerileri
+./port-manager.sh alternatives
+
+# Geleneksel yöntem
 sudo kill -9 PID
 ```
 
@@ -746,6 +897,55 @@ nano /etc/postgresql/14/main/pg_hba.conf
 - JWT secret'ları düzenli olarak değiştirin
 - API key'leri güvenli saklayın
 
+## 🆕 Yeni Özellikler ve İyileştirmeler
+
+### v2.0 Güncellemeleri
+
+#### 🔧 Port Yönetimi
+- **Otomatik Port Çakışması Tespiti**: Kurulum sırasında kullanılan portları tespit eder
+- **Güvenli Process Sonlandırma**: SIGTERM → SIGKILL sırası ile güvenli temizleme
+- **Alternatif Port Önerileri**: Çakışma durumunda kullanılabilir portları önerir
+- **Zombie Process Temizleme**: Ölü process'leri otomatik temizler
+
+#### 🌐 CORS Optimizasyonu
+- **Production Domain Desteği**: `otoparca.isletmemdijitalde.com` için optimize edildi
+- **Güvenli CORS Ayarları**: Wildcard yerine spesifik domain kullanımı
+- **Preflight Request Desteği**: OPTIONS request'leri için optimize edilmiş yanıtlar
+- **Credential Support**: Authentication için güvenli cookie desteği
+
+#### 🚀 Gelişmiş Kurulum
+- **Tek Komut Kurulum**: `./install.sh` ile tam otomatik kurulum
+- **Domain Yapılandırması**: Kurulum sırasında domain otomatik yapılandırması
+- **SSL Otomasyonu**: Let's Encrypt ile otomatik SSL kurulumu
+- **Güvenlik Kontrolü**: Sistem gereksinimlerini otomatik kontrol
+
+#### 📊 Monitoring ve Yönetim
+- **Gelişmiş Health Checks**: Servis durumlarını detaylı kontrol
+- **Resource Monitoring**: CPU, RAM, Disk kullanımını izleme
+- **Log Aggregation**: Merkezi log toplama ve analiz
+- **Performance Metrics**: Sistem performans metrikleri
+
+### Kullanım Örnekleri
+
+```bash
+# Hızlı kurulum
+git clone https://github.com/YOUR_USERNAME/OtoParcaPanel.git
+cd OtoParcaPanel
+./install.sh
+
+# Port yönetimi
+./port-manager.sh status
+./port-manager.sh cleanup
+
+# Servis yönetimi
+./start-services.sh production start
+./start-services.sh production status --detailed
+
+# CORS test
+curl -H "Origin: https://otoparca.isletmemdijitalde.com" \
+     https://otoparca.isletmemdijitalde.com/api/health
+```
+
 ## 📈 Backup ve Maintenance
 
 ### Otomatik Backup
@@ -808,6 +1008,15 @@ Sorularınız için:
 - **Email**: support@otoparcapanel.com
 - **GitHub Issues**: [GitHub Repository](https://github.com/YOUR_USERNAME/OtoParcaPanel/issues)
 - **Documentation**: [Wiki](https://github.com/YOUR_USERNAME/OtoParcaPanel/wiki)
+- **🆕 Production Site**: [https://otoparca.isletmemdijitalde.com](https://otoparca.isletmemdijitalde.com)
+
+### 🆕 Hızlı Başlangıç
+
+1. **Kurulum**: `./install.sh` çalıştırın
+2. **Port Kontrolü**: `./port-manager.sh status` ile kontrol edin
+3. **Servis Başlatma**: `./start-services.sh production start`
+4. **CORS Test**: Browser'da `https://otoparca.isletmemdijitalde.com` açın
+5. **Monitoring**: `./start-services.sh production status` ile durumu kontrol edin
 
 ## 📄 Lisans
 

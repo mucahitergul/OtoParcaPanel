@@ -197,6 +197,68 @@ install_nginx() {
     log "Nginx kurulumu tamamlandı."
 }
 
+# Port çakışması kontrolü ve çözümü
+check_and_resolve_port_conflicts() {
+    log "Port çakışması kontrolü yapılıyor..."
+    
+    REQUIRED_PORTS=("80" "443" "3000" "3001" "5432" "6379")
+    CONFLICTED_PORTS=()
+    
+    for port in "${REQUIRED_PORTS[@]}"; do
+        if netstat -tlnp | grep ":$port " > /dev/null 2>&1; then
+            PROCESS=$(netstat -tlnp | grep ":$port " | awk '{print $7}' | cut -d'/' -f2)
+            if [[ "$PROCESS" != "docker-proxy" && "$PROCESS" != "nginx" ]]; then
+                warn "Port $port kullanımda: $PROCESS"
+                CONFLICTED_PORTS+=("$port:$PROCESS")
+            fi
+        fi
+    done
+    
+    if [ ${#CONFLICTED_PORTS[@]} -gt 0 ]; then
+        echo -e "\n${RED}=== PORT ÇAKIŞMASI TESPİT EDİLDİ ===${NC}"
+        echo -e "Aşağıdaki portlar kullanımda:"
+        for conflict in "${CONFLICTED_PORTS[@]}"; do
+            port=$(echo $conflict | cut -d':' -f1)
+            process=$(echo $conflict | cut -d':' -f2)
+            echo -e "${YELLOW}Port $port: $process${NC}"
+        done
+        
+        echo -e "\n${BLUE}Çözüm seçenekleri:${NC}"
+        echo -e "1. Çakışan servisleri durdur (önerilen)"
+        echo -e "2. Alternatif portlar kullan"
+        echo -e "3. Manuel çözüm (kurulumu durdur)"
+        
+        read -p "Seçiminizi yapın (1-3): " -n 1 -r
+        echo ""
+        
+        case $REPLY in
+            1)
+                log "Çakışan servisler durduruluyor..."
+                for conflict in "${CONFLICTED_PORTS[@]}"; do
+                    port=$(echo $conflict | cut -d':' -f1)
+                    process=$(echo $conflict | cut -d':' -f2)
+                    if [[ "$process" != "-" ]]; then
+                        pkill -f "$process" 2>/dev/null || true
+                        log "$process servisi durduruldu (Port $port)"
+                    fi
+                done
+                ;;
+            2)
+                warn "Alternatif port kullanımı henüz desteklenmiyor. Manuel konfigürasyon gerekli."
+                error "Kurulum iptal edildi. Portları manuel olarak temizleyin."
+                ;;
+            3)
+                error "Kurulum kullanıcı tarafından iptal edildi."
+                ;;
+            *)
+                error "Geçersiz seçim. Kurulum iptal edildi."
+                ;;
+        esac
+    fi
+    
+    log "Port kontrolü tamamlandı."
+}
+
 # Firewall ayarları
 setup_firewall() {
     log "Firewall ayarları yapılıyor..."
@@ -213,7 +275,7 @@ setup_firewall() {
     ufw allow 'Nginx Full'
     ufw allow 3000  # Frontend
     ufw allow 3001  # Backend
-    ufw allow 5000  # Scraper
+    ufw allow 5000  # Scraper (local connection için)
     
     # UFW'yi etkinleştir
     ufw --force enable
@@ -292,10 +354,16 @@ JWT_SECRET=$JWT_SECRET
 NEXTAUTH_SECRET=$NEXTAUTH_SECRET
 NEXTAUTH_URL=https://$DOMAIN_NAME
 
-# Frontend
+# Frontend URLs (Production)
 NEXT_PUBLIC_API_URL=https://$DOMAIN_NAME/api
 NEXT_PUBLIC_APP_URL=https://$DOMAIN_NAME
 FRONTEND_URL=https://$DOMAIN_NAME
+NEXT_PUBLIC_BACKEND_URL=https://$DOMAIN_NAME
+NEXT_PUBLIC_SCRAPER_URL=https://$DOMAIN_NAME/scraper
+
+# Backend URLs (Production)
+BACKEND_URL=https://$DOMAIN_NAME
+CORS_ORIGIN=https://$DOMAIN_NAME
 
 # WooCommerce (isteğe bağlı)
 WOOCOMMERCE_URL=
@@ -317,10 +385,27 @@ AWS_SECRET_ACCESS_KEY=your-aws-secret-key
 GRAFANA_PASSWORD=admin123
 EOF
     
+    # Frontend .env.local dosyasını oluştur
+    mkdir -p frontend
+    cat > frontend/.env.local << EOF
+# Frontend Production Environment
+NEXT_PUBLIC_API_URL=https://$DOMAIN_NAME/api
+NEXT_PUBLIC_APP_URL=https://$DOMAIN_NAME
+NEXT_PUBLIC_BACKEND_URL=https://$DOMAIN_NAME
+NEXT_PUBLIC_SCRAPER_URL=https://$DOMAIN_NAME/scraper
+NEXTAUTH_URL=https://$DOMAIN_NAME
+NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+NODE_ENV=production
+EOF
+    
     chmod 600 .env
+    chmod 600 frontend/.env.local
     chown $SUDO_USER:$SUDO_USER .env
+    chown $SUDO_USER:$SUDO_USER frontend/.env.local
     
     log "Environment dosyaları oluşturuldu."
+    info "Production domain: https://$DOMAIN_NAME"
+    info "API URL: https://$DOMAIN_NAME/api"
     warn "Güvenlik için .env dosyasındaki şifreleri değiştirmeyi unutmayın!"
 }
 
@@ -428,6 +513,7 @@ main() {
     log "Oto Parça Panel kurulumu başlatılıyor..."
     
     check_system
+    check_and_resolve_port_conflicts
     update_system
     install_docker
     install_nodejs

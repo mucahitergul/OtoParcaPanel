@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
     // Forward request to backend
     const backendUrl = process.env.NEXT_PUBLIC_API_URL ? 
       `${process.env.NEXT_PUBLIC_API_URL}/products/statistics` : 
-      'http://localhost:3001/api/products/statistics';
+      'http://otoparca.isletmemdijitalde.com/api/products/statistics';
     const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {

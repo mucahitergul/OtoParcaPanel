@@ -90,20 +90,76 @@ check_system_resources() {
     log "Sistem kaynakları kontrol edildi."
 }
 
-# Port kontrolü
+# Gelişmiş port kontrolü ve çakışma çözümü
 check_ports() {
     log "Port kullanımı kontrol ediliyor..."
     
     PORTS=("80" "443" "3000" "3001" "5000" "5432" "6379")
+    CONFLICTED_PORTS=()
     
     for port in "${PORTS[@]}"; do
         if netstat -tlnp | grep ":$port " > /dev/null 2>&1; then
             PROCESS=$(netstat -tlnp | grep ":$port " | awk '{print $7}' | cut -d'/' -f2)
-            if [[ "$PROCESS" != "docker-proxy" && "$PROCESS" != "nginx" ]]; then
-                warn "Port $port kullanımda: $PROCESS"
+            PID=$(netstat -tlnp | grep ":$port " | awk '{print $7}' | cut -d'/' -f1)
+            if [[ "$PROCESS" != "docker-proxy" && "$PROCESS" != "nginx" && "$PROCESS" != "-" ]]; then
+                warn "Port $port kullanımda: $PROCESS (PID: $PID)"
+                CONFLICTED_PORTS+=("$port:$PROCESS:$PID")
             fi
         fi
     done
+    
+    if [ ${#CONFLICTED_PORTS[@]} -gt 0 ]; then
+        echo -e "\n${RED}=== PORT ÇAKIŞMASI TESPİT EDİLDİ ===${NC}"
+        echo -e "Aşağıdaki portlar kullanımda:"
+        for conflict in "${CONFLICTED_PORTS[@]}"; do
+            port=$(echo $conflict | cut -d':' -f1)
+            process=$(echo $conflict | cut -d':' -f2)
+            pid=$(echo $conflict | cut -d':' -f3)
+            echo -e "${YELLOW}Port $port: $process (PID: $pid)${NC}"
+        done
+        
+        echo -e "\n${BLUE}Çözüm seçenekleri:${NC}"
+        echo -e "1. Çakışan servisleri otomatik durdur (önerilen)"
+        echo -e "2. Manuel çözüm (servisleri kendiniz durdurun)"
+        echo -e "3. Port çakışmasını yoksay ve devam et"
+        echo -e "4. Çıkış"
+        
+        read -p "Seçiminizi yapın (1-4): " -n 1 -r
+        echo ""
+        
+        case $REPLY in
+            1)
+                log "Çakışan servisler otomatik olarak durduruluyor..."
+                for conflict in "${CONFLICTED_PORTS[@]}"; do
+                    port=$(echo $conflict | cut -d':' -f1)
+                    process=$(echo $conflict | cut -d':' -f2)
+                    pid=$(echo $conflict | cut -d':' -f3)
+                    if [[ "$pid" != "-" && "$pid" =~ ^[0-9]+$ ]]; then
+                        kill -TERM "$pid" 2>/dev/null || true
+                        sleep 2
+                        if kill -0 "$pid" 2>/dev/null; then
+                            kill -KILL "$pid" 2>/dev/null || true
+                        fi
+                        log "$process servisi durduruldu (Port $port, PID: $pid)"
+                    fi
+                done
+                sleep 3
+                ;;
+            2)
+                warn "Manuel çözüm seçildi. Çakışan servisleri durdurup tekrar çalıştırın."
+                return 1
+                ;;
+            3)
+                warn "Port çakışması yoksayıldı. Servisler başlatılmaya devam ediliyor."
+                ;;
+            4)
+                error "Kullanıcı tarafından iptal edildi."
+                ;;
+            *)
+                error "Geçersiz seçim. İşlem iptal edildi."
+                ;;
+        esac
+    fi
     
     log "Port kontrolü tamamlandı."
 }
@@ -200,25 +256,40 @@ check_service_status() {
     
     echo -e "\n${BLUE}=== Servis Health Check'leri ===${NC}"
     
+    # Domain adını environment'tan al
+    DOMAIN_NAME=${DOMAIN_NAME:-"localhost"}
+    
     # Frontend kontrolü
-    if curl -f http://localhost:3000 > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ Frontend (3000): Çalışıyor${NC}"
+    if [[ "$DOMAIN_NAME" == "localhost" ]]; then
+        FRONTEND_URL="http://localhost:3000"
     else
-        echo -e "${RED}✗ Frontend (3000): Çalışmıyor${NC}"
+        FRONTEND_URL="https://$DOMAIN_NAME"
+    fi
+    
+    if curl -f "$FRONTEND_URL" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Frontend ($FRONTEND_URL): Çalışıyor${NC}"
+    else
+        echo -e "${RED}✗ Frontend ($FRONTEND_URL): Çalışmıyor${NC}"
     fi
     
     # Backend kontrolü
-    if curl -f http://localhost:3001/api/health > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ Backend (3001): Çalışıyor${NC}"
+    if [[ "$DOMAIN_NAME" == "localhost" ]]; then
+        BACKEND_URL="http://localhost:3001/api/health"
     else
-        echo -e "${RED}✗ Backend (3001): Çalışmıyor${NC}"
+        BACKEND_URL="https://$DOMAIN_NAME/api/health"
     fi
     
-    # Scraper kontrolü
-    if curl -f http://localhost:5000/health > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ Scraper (5000): Çalışıyor${NC}"
+    if curl -f "$BACKEND_URL" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Backend ($BACKEND_URL): Çalışıyor${NC}"
     else
-        echo -e "${RED}✗ Scraper (5000): Çalışmıyor${NC}"
+        echo -e "${RED}✗ Backend ($BACKEND_URL): Çalışmıyor${NC}"
+    fi
+    
+    # Scraper kontrolü (local development için)
+    if curl -f http://localhost:5000/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Scraper (localhost:5000): Çalışıyor${NC}"
+    else
+        echo -e "${YELLOW}⚠ Scraper (localhost:5000): Çalışmıyor (Normal - Remote scraper kullanılıyor)${NC}"
     fi
     
     # PostgreSQL kontrolü

@@ -23,7 +23,9 @@ class ConsoleScraperBot:
         print("=====================================")
         
         # API Configuration
-        self.api_base_url = "http://localhost:3001/api/scraper"
+        # Production domain için environment variable kullan, yoksa localhost
+        import os
+        self.api_base_url = os.getenv('BACKEND_API_URL', 'https://otoparca.isletmemdijitalde.com/api/scraper')
         self.is_running = False
         
         # Flask app for receiving requests

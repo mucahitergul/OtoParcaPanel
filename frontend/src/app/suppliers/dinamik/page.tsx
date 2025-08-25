@@ -179,7 +179,7 @@ export default function DinamikSupplierPage() {
          const controller2 = new AbortController();
          const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
          
-         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://otoparca.isletmemdijitalde.com/api';
          response = await fetch(`${baseUrl}/scraper/request-update`, {
            method: 'POST',
            headers,
