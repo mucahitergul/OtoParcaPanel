@@ -643,16 +643,174 @@ install_nodejs() {
 install_postgresql() {
     update_progress "PostgreSQL kurulumu yapılıyor..."
     
-    run_command "apt install -y postgresql postgresql-contrib" "PostgreSQL yüklendi"
+    # PostgreSQL kurulumunu kontrol et
+    if command -v psql >/dev/null 2>&1; then
+        info "PostgreSQL zaten kurulu, sürüm kontrolü yapılıyor..."
+        local pg_version=$(sudo -u postgres psql --version 2>/dev/null | grep -oP '\d+\.\d+' | head -1)
+        if [[ -n "$pg_version" ]]; then
+            info "PostgreSQL $pg_version tespit edildi"
+        fi
+    else
+        run_command "apt update" "Paket listesi güncellendi"
+        run_command "apt install -y postgresql postgresql-contrib" "PostgreSQL yüklendi"
+    fi
     
-    # PostgreSQL servisini başlat
+    # PostgreSQL servisini başlat ve kontrol et
     run_command "systemctl enable postgresql" "PostgreSQL servisi etkinleştirildi"
     run_command "systemctl start postgresql" "PostgreSQL servisi başlatıldı"
     
-    # Veritabanı oluştur
-    run_command "sudo -u postgres psql -c \"CREATE DATABASE oto_parca_panel;\"" "Veritabanı oluşturuldu"
-    run_command "sudo -u postgres psql -c \"CREATE USER oto_user WITH PASSWORD '$POSTGRES_PASSWORD';\"" "Veritabanı kullanıcısı oluşturuldu"
-    run_command "sudo -u postgres psql -c \"GRANT ALL PRIVILEGES ON DATABASE oto_parca_panel TO oto_user;\"" "Veritabanı izinleri verildi"
+    # PostgreSQL servisinin tam olarak başlamasını bekle
+    info "PostgreSQL servisinin hazır olması bekleniyor..."
+    local max_wait=30
+    local wait_count=0
+    
+    while ! sudo -u postgres pg_isready >/dev/null 2>&1; do
+        if [[ $wait_count -ge $max_wait ]]; then
+            error "PostgreSQL servisi $max_wait saniye içinde hazır olmadı"
+            return 1
+        fi
+        sleep 1
+        ((wait_count++))
+    done
+    
+    success "PostgreSQL servisi hazır (${wait_count}s)"
+    
+    # Veritabanı oluşturma işlemini çağır
+    create_database
+}
+
+# Gelişmiş veritabanı oluşturma fonksiyonu
+create_database() {
+    update_progress "Veritabanı ve kullanıcı oluşturuluyor..."
+    
+    # PostgreSQL bağlantısını test et
+    if ! sudo -u postgres pg_isready >/dev/null 2>&1; then
+        error "PostgreSQL servisi hazır değil"
+        return 1
+    fi
+    
+    # Mevcut veritabanını kontrol et
+    local db_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='oto_parca_panel'" 2>/dev/null || echo "")
+    local user_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='oto_user'" 2>/dev/null || echo "")
+    
+    # Kullanıcı oluştur (eğer yoksa)
+    if [[ "$user_exists" != "1" ]]; then
+        info "Veritabanı kullanıcısı oluşturuluyor..."
+        if sudo -u postgres psql -c "CREATE USER oto_user WITH PASSWORD '$POSTGRES_PASSWORD';" >> "$LOG_FILE" 2>&1; then
+            success "✅ Veritabanı kullanıcısı oluşturuldu"
+        else
+            error "❌ Veritabanı kullanıcısı oluşturulamadı"
+            log "PostgreSQL kullanıcı oluşturma hatası - detaylar log dosyasında"
+            return 1
+        fi
+    else
+        info "Veritabanı kullanıcısı zaten mevcut"
+        # Şifreyi güncelle
+        if sudo -u postgres psql -c "ALTER USER oto_user WITH PASSWORD '$POSTGRES_PASSWORD';" >> "$LOG_FILE" 2>&1; then
+            info "Kullanıcı şifresi güncellendi"
+        fi
+    fi
+    
+    # Veritabanı oluştur (eğer yoksa)
+    if [[ "$db_exists" != "1" ]]; then
+        info "Veritabanı oluşturuluyor..."
+        if sudo -u postgres psql -c "CREATE DATABASE oto_parca_panel OWNER oto_user;" >> "$LOG_FILE" 2>&1; then
+            success "✅ Veritabanı oluşturuldu"
+        else
+            error "❌ Veritabanı oluşturulamadı"
+            log "PostgreSQL veritabanı oluşturma hatası - detaylar log dosyasında"
+            return 1
+        fi
+    else
+        info "Veritabanı zaten mevcut"
+    fi
+    
+    # İzinleri ver
+    info "Veritabanı izinleri ayarlanıyor..."
+    if sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE oto_parca_panel TO oto_user;" >> "$LOG_FILE" 2>&1; then
+        success "✅ Veritabanı izinleri verildi"
+    else
+        warn "⚠️  İzin verme işleminde sorun olabilir"
+    fi
+    
+    # Bağlantı testi
+    info "Veritabanı bağlantısı test ediliyor..."
+    export PGPASSWORD="$POSTGRES_PASSWORD"
+    
+    if psql -h localhost -U oto_user -d oto_parca_panel -c "SELECT version();" >> "$LOG_FILE" 2>&1; then
+        success "✅ Veritabanı bağlantısı başarılı"
+        unset PGPASSWORD
+        return 0
+    else
+        error "❌ Veritabanı bağlantısı başarısız"
+        warn "Authentication ayarları kontrol ediliyor..."
+        
+        # pg_hba.conf ayarlarını kontrol et ve düzelt
+        configure_postgresql_auth
+        
+        # Tekrar test et
+        if psql -h localhost -U oto_user -d oto_parca_panel -c "SELECT version();" >> "$LOG_FILE" 2>&1; then
+            success "✅ Veritabanı bağlantısı düzeltildi"
+            unset PGPASSWORD
+            return 0
+        else
+            error "❌ Veritabanı bağlantısı hala başarısız"
+            unset PGPASSWORD
+            return 1
+        fi
+    fi
+}
+
+# PostgreSQL authentication ayarları
+configure_postgresql_auth() {
+    info "PostgreSQL authentication ayarları yapılıyor..."
+    
+    # PostgreSQL sürümünü tespit et
+    local pg_version=$(sudo -u postgres psql -tAc "SELECT version()" | grep -oP 'PostgreSQL \K[0-9]+\.[0-9]+' | head -1)
+    local pg_config_dir="/etc/postgresql/$pg_version/main"
+    
+    if [[ ! -d "$pg_config_dir" ]]; then
+        # Alternatif yolları dene
+        for dir in /etc/postgresql/*/main; do
+            if [[ -d "$dir" ]]; then
+                pg_config_dir="$dir"
+                break
+            fi
+        done
+    fi
+    
+    if [[ ! -d "$pg_config_dir" ]]; then
+        warn "PostgreSQL konfigürasyon dizini bulunamadı"
+        return 1
+    fi
+    
+    local pg_hba_conf="$pg_config_dir/pg_hba.conf"
+    
+    if [[ -f "$pg_hba_conf" ]]; then
+        # Backup oluştur
+        cp "$pg_hba_conf" "$pg_hba_conf.backup.$(date +%Y%m%d_%H%M%S)"
+        
+        # Local bağlantılar için md5 authentication ekle
+        if ! grep -q "local.*oto_user.*md5" "$pg_hba_conf"; then
+            # oto_user için özel kural ekle
+            sed -i '/^local.*all.*all.*peer/i local   oto_parca_panel oto_user                               md5' "$pg_hba_conf"
+            info "pg_hba.conf güncellendi"
+            
+            # PostgreSQL'i yeniden başlat
+            run_command "systemctl reload postgresql" "PostgreSQL konfigürasyonu yeniden yüklendi"
+            
+            # Servisin hazır olmasını bekle
+            sleep 3
+            
+            return 0
+        else
+            info "pg_hba.conf zaten uygun şekilde yapılandırılmış"
+            return 0
+        fi
+    else
+        warn "pg_hba.conf dosyası bulunamadı: $pg_hba_conf"
+        return 1
+    fi
 }
 
 install_nginx() {
