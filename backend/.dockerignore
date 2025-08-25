@@ -3,48 +3,7 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# Build output
-dist
-build
-
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE files
-.vscode
-.idea
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Git
-.git
-.gitignore
-
-# Documentation
-README.md
-*.md
-
-# Test files
-test
-*.test.js
-*.test.ts
-*.spec.js
-*.spec.ts
-coverage
-
-# Logs
-logs
-*.log
+pnpm-debug.log*
 
 # Runtime data
 pids
@@ -52,18 +11,157 @@ pids
 *.seed
 *.pid.lock
 
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
 # Optional npm cache directory
 .npm
 
-# ESLint cache
-.eslintcache
+# Optional REPL history
+.node_repl_history
 
-# Prettier
-.prettierrc
-.prettierignore
+# Output of 'npm pack'
+*.tgz
 
-# TypeScript
-*.tsbuildinfo
+# Yarn Integrity file
+.yarn-integrity
 
-# NestJS
-.nest
+# Environment variables files
+.env
+.env.*
+.env.test
+.env.local
+.env.production
+.env.development
+.env.staging
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Security and sensitive files
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
+keys/
+certs/
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+README*
+CHANGELOG*
+LICENSE*
+docs/
+
+# Test files
+test/
+tests/
+__tests__/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+jest.config.*
+
+# Build tools
+webpack.config.*
+vite.config.*
+rollup.config.*
+babel.config.*
+.babelrc*
+tsconfig.json
+.eslintrc*
+.prettierrc*
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Database files
+*.sqlite
+*.db
+*.sql
+
+# Uploads (exclude from image)
+uploads/
+static/uploads/
+public/uploads/

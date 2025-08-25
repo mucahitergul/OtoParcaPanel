@@ -1,0 +1,11 @@
+# Oto Parça Panel - Backup Service Crontab
+# Automated backup scheduling
+
+# Daily backup at 2:00 AM
+0 2 * * * /scripts/backup.sh >> /var/log/backup/cron.log 2>&1
+
+# Weekly cleanup at 3:00 AM on Sundays
+0 3 * * 0 /scripts/cleanup.sh >> /var/log/backup/cron.log 2>&1
+
+# Health check every hour
+0 * * * * /scripts/health-check.sh >> /var/log/backup/health.log 2>&1

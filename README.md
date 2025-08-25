@@ -6,23 +6,24 @@ Oto Parça Panel, otomotiv yedek parça satıcıları için geliştirilmiş kaps
 
 ## ⚡ Hızlı Başlangıç
 
-**Sıfır temiz Ubuntu sunucuya 5 dakikada kurulum:**
+**Ubuntu 22.04 LTS'ye tek komutla kurulum:**
 
 ```bash
-# Tek komutla tam kurulum
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/one-click-install.sh | sudo bash
+# Let's Encrypt SSL ile kurulum (Önerilen)
+sudo ./ubuntu-installer.sh yourdomain.com
+
+# Self-signed SSL ile kurulum (Test/Geliştirme)
+sudo ./ubuntu-installer.sh
 ```
 
-**Kurulum sırasında sadece 2 bilgi istenir:**
-1. 🌐 **Domain adınız** (örn: otoparca.example.com)
-2. 📧 **Email adresiniz** (SSL sertifikası için)
-
-**Kurulum otomatik olarak:**
-- ✅ Tüm bağımlılıkları kurar (Docker, Node.js, PostgreSQL, Nginx)
-- ✅ Port çakışmalarını çözer
-- ✅ SSL sertifikası oluşturur
-- ✅ Güvenli şifreler üretir
-- ✅ Servisleri başlatır ve test eder
+**Kurulum özellikleri:**
+- 🚀 **Tek Komut**: Sıfır konfigürasyon gerekli
+- 🔒 **Otomatik SSL**: Let's Encrypt veya Self-signed
+- 🛡️ **Güvenlik**: Güçlü şifreler ve firewall
+- ⚡ **Performans**: Production-ready optimizasyonlar
+- 🔧 **Akıllı**: Port çakışması tespiti ve çözümü
+- 📊 **Monitoring**: Detaylı logging ve health checks
+- 🔄 **Rollback**: Hata durumunda otomatik temizlik
 
 **Kurulum sonrası siteniz hazır:** `https://yourdomain.com` 🎉
 
@@ -125,62 +126,66 @@ apt update && apt upgrade -y
 apt install -y curl wget git unzip software-properties-common
 ```
 
-### 3. One-Click Otomatik Kurulum (Önerilen)
+### 3. Ubuntu 22.04 LTS Otomatik Kurulum (Önerilen)
 
 **Sıfır temiz sunucuya tek komutla tam kurulum:**
-
-```bash
-# GitHub'dan direkt kurulum (Önerilen)
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/one-click-install.sh | sudo bash
-```
-
-**Veya yerel dosyadan kurulum:**
 
 ```bash
 # Projeyi klonlayın
 git clone https://github.com/YOUR_USERNAME/OtoParcaPanel.git
 cd OtoParcaPanel
 
-# One-click kurulum scriptini çalıştırın
-chmod +x one-click-install.sh
-sudo ./one-click-install.sh
+# Kurulum scriptini çalıştırılabilir yapın
+chmod +x ubuntu-installer.sh
+
+# Let's Encrypt SSL ile kurulum (Production)
+sudo ./ubuntu-installer.sh yourdomain.com
+
+# Self-signed SSL ile kurulum (Development/Test)
+sudo ./ubuntu-installer.sh
 ```
+
+**Kurulum Süreci:**
+1. ✅ Sistem gereksinimleri kontrol edilir
+2. ✅ Güvenli şifreler otomatik oluşturulur
+3. ✅ Docker ve bağımlılıklar kurulur
+4. ✅ Port çakışmaları çözülür
+5. ✅ SSL sertifikası kurulur
+6. ✅ Firewall yapılandırılır
+7. ✅ Servisler başlatılır ve test edilir
 
 #### 🔒 SSL Sertifika Kurulum Seçenekleri
 
 **1. Let's Encrypt SSL (Production - Önerilen):**
 
-*Ana Domain Kurulumu:*
 ```bash
-# Ana domain ile Let's Encrypt kurulumu (www dahil)
-sudo ./one-click-install.sh yourdomain.com
-
-# Örnek:
-sudo ./one-click-install.sh otoparca.com
-# Bu kurulum hem otoparca.com hem www.otoparca.com için sertifika alır
-```
-
-*Subdomain Kurulumu:*
-```bash
-# Subdomain ile Let's Encrypt kurulumu
-sudo ./one-click-install.sh subdomain.yourdomain.com
+# Ana domain ile Let's Encrypt kurulumu
+sudo ./ubuntu-installer.sh yourdomain.com
 
 # Örnekler:
-sudo ./one-click-install.sh panel.otoparca.com    # Panel subdomain
-sudo ./one-click-install.sh api.otoparca.com      # API subdomain
-sudo ./one-click-install.sh app.otoparca.com      # Uygulama subdomain
-sudo ./one-click-install.sh admin.otoparca.com    # Admin subdomain
-sudo ./one-click-install.sh www.otoparca.com      # WWW subdomain
+sudo ./ubuntu-installer.sh otoparca.com           # Ana domain
+sudo ./ubuntu-installer.sh panel.otoparca.com     # Panel subdomain
+sudo ./ubuntu-installer.sh api.otoparca.com       # API subdomain
+sudo ./ubuntu-installer.sh app.otoparca.com       # Uygulama subdomain
+sudo ./ubuntu-installer.sh admin.otoparca.com     # Admin subdomain
 ```
 
 **2. Self-Signed SSL (Development/Test):**
 ```bash
 # Domain parametresi olmadan self-signed kurulumu
-sudo ./one-click-install.sh
+sudo ./ubuntu-installer.sh
 
 # Veya help için:
-sudo ./one-click-install.sh --help
+sudo ./ubuntu-installer.sh --help
 ```
+
+**🆕 Yeni Kurulum Aracı Özellikleri:**
+- ✅ **Ubuntu 22.04 LTS Optimizasyonu**: En son LTS sürümü için özel optimizasyonlar
+- ✅ **Gelişmiş Hata Yönetimi**: Detaylı logging ve rollback mekanizması
+- ✅ **Akıllı Port Yönetimi**: Otomatik port çakışması tespiti ve çözümü
+- ✅ **Production-Ready**: Resource limits ve performance tuning
+- ✅ **Güvenlik Odaklı**: Güçlü şifreler ve firewall konfigürasyonu
+- ✅ **Health Monitoring**: Servis durumu kontrolü ve otomatik restart
 
 **🆕 Subdomain Desteği Özellikleri:**
 - ✅ **Akıllı Domain Tespiti**: Ana domain ve subdomain otomatik olarak tespit edilir

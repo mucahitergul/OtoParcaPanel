@@ -9,6 +9,7 @@ After=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/otoparcapanel
+ExecStartPre=/opt/otoparcapanel/prevent-port-conflicts.sh
 ExecStartPre=/usr/bin/docker-compose -f docker-compose.prod.yml down
 ExecStart=/usr/bin/docker-compose -f docker-compose.prod.yml up -d
 ExecStop=/usr/bin/docker-compose -f docker-compose.prod.yml down

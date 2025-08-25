@@ -3,51 +3,91 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # Production build
 .next
 out
-build
 dist
+build
 
 # Environment files
 .env
+.env.*
 .env.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
+.env.production
 .env.production.local
+.env.staging
+
+# Security and sensitive files
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
+keys/
+certs/
 
 # IDE files
-.vscode
-.idea
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
+.history/
 
 # OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
 # Git
 .git
 .gitignore
+.gitattributes
+.gitmodules
 
 # Documentation
-README.md
 *.md
-!src/**/*.md
+README*
+CHANGELOG*
+LICENSE*
+docs/
 
 # Test files
-__tests__
+test/
+tests/
+__tests__/
 *.test.js
 *.test.ts
+*.test.jsx
+*.test.tsx
 *.spec.js
 *.spec.ts
-coverage
+*.spec.jsx
+*.spec.tsx
+coverage/
+.nyc_output/
+jest.config.*
+cypress/
+e2e/
 
 # Logs
-logs
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
 # Runtime data
 pids
@@ -57,10 +97,107 @@ pids
 
 # Optional npm cache directory
 .npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
 
 # ESLint cache
 .eslintcache
 
 # Prettier
-.prettierrc
+.prettierrc*
 .prettierignore
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Next.js
+.next/
+out/
+.vercel
+
+# Nuxt.js
+.nuxt
+.output
+
+# Vite
+dist/
+.vite/
+
+# Webpack
+.webpack/
+
+# Parcel
+.cache/
+.parcel-cache/
+
+# Storybook
+.storybook/
+storybook-static/
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Database files
+*.sqlite
+*.db
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+circle.yml
+
+# Package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build tools config
+webpack.config.*
+vite.config.*
+rollup.config.*
+babel.config.*
+.babelrc*
+postcss.config.*
+tailwind.config.*
+
+# Linting
+.eslintrc*
+.stylelintrc*
+
+# Uploads and user content
+uploads/
+static/uploads/
+public/uploads/
+
+# Analytics and tracking
+.vercel/
+.netlify/
+
+# Sentry
+.sentryclirc
