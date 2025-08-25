@@ -1787,6 +1787,92 @@ EOF
 }
 
 # =============================================================================
+# BACKEND SERVICE MANAGEMENT
+# =============================================================================
+
+# Backend servis kontrolü
+check_backend_service() {
+    info "🔍 Backend servisi kontrol ediliyor..."
+    
+    # Docker container kontrolü
+    if docker ps | grep -q "backend"; then
+        info "✅ Backend Docker container çalışıyor"
+    else
+        warn "⚠️  Backend Docker container çalışmıyor"
+        info "🚀 Backend servisi başlatılıyor..."
+        
+        cd "$INSTALL_DIR"
+        docker-compose up -d backend
+        
+        # Başlatma sonrası bekleme
+        sleep 10
+    fi
+    
+    # Port kontrolü
+    if netstat -tlnp | grep -q ":3001 "; then
+        info "✅ Backend portu (3001) dinleniyor"
+    else
+        warn "⚠️  Backend portu (3001) hala dinlenmiyor"
+        return 1
+    fi
+}
+
+# Environment dosyalarını ayarla
+setup_environment_files() {
+    info "📝 Environment dosyaları ayarlanıyor..."
+    
+    # Ana .env dosyası
+    if [[ ! -f "$INSTALL_DIR/.env" ]]; then
+        cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
+        
+        # Database ayarlarını güncelle
+        sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$POSTGRES_PASSWORD/g" "$INSTALL_DIR/.env"
+        sed -i "s/JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/g" "$INSTALL_DIR/.env"
+    fi
+    
+    # Backend .env dosyası
+    if [[ ! -f "$INSTALL_DIR/backend/.env" ]]; then
+        cp "$INSTALL_DIR/backend/.env.example" "$INSTALL_DIR/backend/.env"
+        
+        # Backend ayarlarını güncelle
+        sed -i "s/DATABASE_URL=.*/DATABASE_URL=postgresql:\/\/otoparca:$POSTGRES_PASSWORD@localhost:5432\/otoparca_db/g" "$INSTALL_DIR/backend/.env"
+        sed -i "s/JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/g" "$INSTALL_DIR/backend/.env"
+    fi
+    
+    # Frontend .env dosyası
+    if [[ ! -f "$INSTALL_DIR/frontend/.env.local" ]]; then
+        cp "$INSTALL_DIR/frontend/.env.example" "$INSTALL_DIR/frontend/.env.local"
+        
+        # Frontend API URL'ini güncelle
+        if [[ -n "$DOMAIN_NAME" ]]; then
+            sed -i "s/NEXT_PUBLIC_API_URL=.*/NEXT_PUBLIC_API_URL=https:\/\/$DOMAIN_NAME\/api/g" "$INSTALL_DIR/frontend/.env.local"
+        else
+            sed -i "s/NEXT_PUBLIC_API_URL=.*/NEXT_PUBLIC_API_URL=http:\/\/localhost:3001\/api/g" "$INSTALL_DIR/frontend/.env.local"
+        fi
+    fi
+}
+
+# Tüm servisleri başlat
+start_all_services() {
+    info "🚀 Tüm servisler başlatılıyor..."
+    
+    cd "$INSTALL_DIR"
+    
+    # Environment dosyalarını kontrol et
+    setup_environment_files
+    
+    # Docker Compose ile tüm servisleri başlat
+    docker-compose up -d
+    
+    # Servislerin başlaması için bekle
+    info "⏳ Servisler başlatılıyor, lütfen bekleyin..."
+    sleep 30
+    
+    # Servis durumlarını kontrol et
+    docker-compose ps
+}
+
+# =============================================================================
 # INSTALLATION VALIDATION
 # =============================================================================
 
@@ -1835,21 +1921,54 @@ validate_installation() {
         fi
     done
     
-    # Port kontrolü
-    local ports=(80 443 3000 3001 5432)
-    for port in "${ports[@]}"; do
-        if ! netstat -tlnp | grep ":$port " > /dev/null 2>&1; then
-            warn "Port dinlenmiyor: $port"
+    # Port kontrolü ve otomatik düzeltme
+    local ports=("80:HTTP" "443:HTTPS" "3000:Frontend" "3001:Backend" "5432:PostgreSQL")
+    
+    for port_info in "${ports[@]}"; do
+        local port="${port_info%%:*}"
+        local service="${port_info##*:}"
+        
+        if netstat -tlnp | grep -q ":$port "; then
+            info "✅ $service portu ($port) dinleniyor"
+        else
+            warn "⚠️  $service portu ($port) dinlenmiyor"
             ((validation_errors++))
         fi
     done
     
-    if [[ $validation_errors -eq 0 ]]; then
+    # Hata varsa servisleri yeniden başlat
+    if [[ $validation_errors -gt 0 ]]; then
+        warn "⚠️  $validation_errors doğrulama hatası tespit edildi, servisler yeniden başlatılıyor..."
+        start_all_services
+        
+        # Backend servisini özel olarak kontrol et
+        check_backend_service
+        
+        # Tekrar kontrol et
+        sleep 15
+        local final_errors=0
+        for port_info in "${ports[@]}"; do
+            local port="${port_info%%:*}"
+            local service="${port_info##*:}"
+            
+            if netstat -tlnp | grep -q ":$port "; then
+                info "✅ $service portu ($port) şimdi dinleniyor"
+            else
+                error "❌ $service portu ($port) hala dinlenmiyor"
+                ((final_errors++))
+            fi
+        done
+        
+        if [[ $final_errors -eq 0 ]]; then
+            log "Kurulum doğrulaması başarılı (düzeltme sonrası)"
+            return 0
+        else
+            warn "$final_errors port sorunu devam ediyor"
+            return 1
+        fi
+    else
         log "Kurulum doğrulaması başarılı"
         return 0
-    else
-        warn "$validation_errors doğrulama hatası tespit edildi"
-        return 1
     fi
 }
 
