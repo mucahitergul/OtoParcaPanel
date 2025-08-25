@@ -4,8 +4,31 @@
 
 Oto Parça Panel, otomotiv yedek parça satıcıları için geliştirilmiş kapsamlı bir stok ve fiyat takip sistemidir. Sistem, tedarikçi fiyatlarını otomatik olarak takip eder, stok durumlarını günceller ve WooCommerce entegrasyonu ile e-ticaret sitelerinizi senkronize eder.
 
+## ⚡ Hızlı Başlangıç
+
+**Sıfır temiz Ubuntu sunucuya 5 dakikada kurulum:**
+
+```bash
+# Tek komutla tam kurulum
+curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/one-click-install.sh | sudo bash
+```
+
+**Kurulum sırasında sadece 2 bilgi istenir:**
+1. 🌐 **Domain adınız** (örn: otoparca.example.com)
+2. 📧 **Email adresiniz** (SSL sertifikası için)
+
+**Kurulum otomatik olarak:**
+- ✅ Tüm bağımlılıkları kurar (Docker, Node.js, PostgreSQL, Nginx)
+- ✅ Port çakışmalarını çözer
+- ✅ SSL sertifikası oluşturur
+- ✅ Güvenli şifreler üretir
+- ✅ Servisleri başlatır ve test eder
+
+**Kurulum sonrası siteniz hazır:** `https://yourdomain.com` 🎉
+
 ### 🚀 Özellikler
 
+#### 💼 İş Özellikleri
 - **Tedarikçi Fiyat Takibi**: Dinamik, Başbuğ, Doğuş gibi tedarikçilerden otomatik fiyat çekme
 - **Python Scraper Bot**: Gerçek zamanlı fiyat ve stok bilgisi toplama
 - **WooCommerce Entegrasyonu**: E-ticaret sitenizle otomatik senkronizasyon
@@ -13,6 +36,16 @@ Oto Parça Panel, otomotiv yedek parça satıcıları için geliştirilmiş kaps
 - **Responsive Tasarım**: Masaüstü ve mobil uyumlu modern arayüz
 - **Real-time Updates**: Anlık fiyat ve stok güncellemeleri
 - **Bulk Operations**: Toplu fiyat güncelleme ve stok yönetimi
+
+#### 🛠️ Teknik Özellikler (v2.0)
+- **🚀 One-Click Installation**: Sıfır temiz sunucuya tek komutla tam kurulum
+- **🔧 Akıllı Port Yönetimi**: Otomatik port çakışması tespiti ve çözümü
+- **🔒 Güvenli CORS Ayarları**: Production domain için optimize edilmiş CORS
+- **📊 Real-time Monitoring**: Sistem durumu ve performans izleme
+- **🔄 Auto-Recovery**: Başarısız işlemlerde otomatik kurtarma
+- **📝 Kapsamlı Logging**: Detaylı hata takibi ve debugging
+- **🛡️ SSL Auto-Setup**: Let's Encrypt ile otomatik HTTPS kurulumu
+- **⚡ Performance Optimized**: Nginx, PM2 ve database optimizasyonları
 - **🆕 Otomatik Port Yönetimi**: Port çakışması tespiti ve otomatik çözüm
 - **🆕 CORS Optimizasyonu**: Production domain için optimize edilmiş CORS ayarları
 - **🆕 Gelişmiş Kurulum**: Tek komutla otomatik kurulum ve yapılandırma
@@ -92,17 +125,37 @@ apt update && apt upgrade -y
 apt install -y curl wget git unzip software-properties-common
 ```
 
-### 3. Otomatik Kurulum (Önerilen)
+### 3. One-Click Otomatik Kurulum (Önerilen)
+
+**Sıfır temiz sunucuya tek komutla tam kurulum:**
+
+```bash
+# GitHub'dan direkt kurulum (Önerilen)
+curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/one-click-install.sh | sudo bash
+```
+
+**Veya yerel dosyadan kurulum:**
 
 ```bash
 # Projeyi klonlayın
 git clone https://github.com/YOUR_USERNAME/OtoParcaPanel.git
 cd OtoParcaPanel
 
-# Kurulum scriptini çalıştırın
-chmod +x install.sh
-./install.sh
+# One-click kurulum scriptini çalıştırın
+chmod +x one-click-install.sh
+sudo ./one-click-install.sh
 ```
+
+**One-Click Kurulum Özellikleri:**
+- ✅ **Otomatik Sistem Kontrolü**: RAM, disk, internet bağlantısı
+- ✅ **Akıllı Port Yönetimi**: Çakışan portları otomatik çözer
+- ✅ **Güvenli Şifre Üretimi**: Tüm şifreler otomatik oluşturulur
+- ✅ **SSL Sertifika Kurulumu**: Let's Encrypt ile otomatik HTTPS
+- ✅ **CORS Optimizasyonu**: Production domain için optimize edilmiş
+- ✅ **Hata Yönetimi**: Her adımda hata kontrolü ve recovery
+- ✅ **Progress Tracking**: Renkli output ve ilerleme çubuğu
+- ✅ **Kurulum Doğrulama**: Tüm servislerin health check'i
+- ✅ **Rollback Desteği**: Başarısız kurumda otomatik geri alma
 
 #### 🆕 Gelişmiş Kurulum Özellikleri
 
@@ -766,36 +819,70 @@ sudo systemctl reload nginx
 ./port-manager.sh check-cors
 ```
 
-### Yaygın Sorunlar
+### 🚀 Hızlı Çözüm Araçları
 
-#### 1. Database Connection Error
+**One-Click kurulum ile birlikte gelen otomatik troubleshooting araçları:**
+
+```bash
+# Port yönetimi ve çakışma çözümü
+sudo ./port-manager.sh status          # Port durumunu kontrol et
+sudo ./port-manager.sh cleanup         # Çakışan portları temizle
+sudo ./port-manager.sh alternatives    # Alternatif portlar öner
+
+# Nginx hata analizi ve çözümü
+sudo ./nginx-debug.sh                  # Kapsamlı nginx analizi
+sudo ./nginx-safe-start.sh             # Güvenli nginx başlatma
+sudo ./fix-nginx-ports.sh              # Nginx port çakışmalarını çöz
+
+# SSL sertifika yönetimi
+sudo ./ssl-check.sh                    # SSL durumu kontrol et
+sudo ./ssl-check.sh --create           # SSL sertifika oluştur
+sudo ./ssl-check.sh --renew            # SSL sertifika yenile
+```
+
+### Yaygın Sorunlar ve Çözümleri
+
+#### 1. CORS Policy Hataları
+```bash
+# CORS ayarlarını kontrol et
+curl -H "Origin: https://yourdomain.com" \
+     -H "Access-Control-Request-Method: POST" \
+     -H "Access-Control-Request-Headers: X-Requested-With" \
+     -X OPTIONS https://yourdomain.com/api/auth/login
+
+# Nginx CORS konfigürasyonunu yenile
+sudo nginx -t && sudo systemctl reload nginx
+
+# Backend CORS ayarlarını kontrol et
+cat /opt/oto-parca-panel/backend/.env | grep CORS
+```
+
+#### 2. Port Çakışması (Otomatik Çözüm)
+```bash
+# Otomatik port çakışması tespiti ve çözümü
+sudo ./port-manager.sh cleanup
+
+# Manuel port kontrolü
+sudo netstat -tlnp | grep :80
+sudo netstat -tlnp | grep :443
+sudo netstat -tlnp | grep :3000
+sudo netstat -tlnp | grep :3001
+
+# Çakışan servisleri durdur
+sudo systemctl stop apache2    # Apache çakışması
+sudo pkill -f "node.*3000"     # Node.js çakışması
+```
+
+#### 3. Database Connection Error
 ```bash
 # PostgreSQL servisini kontrol edin
 sudo systemctl status postgresql
 
 # Veritabanı bağlantısını test edin
 psql -h localhost -U oto_user -d oto_parca_panel
-```
 
-#### 2. Port Çakışması (🆕 Gelişmiş Çözüm)
-```bash
-# 🆕 Port Manager ile otomatik çözüm
-./port-manager.sh cleanup
-
-# Manuel port kontrolü
-sudo netstat -tlnp | grep :3000
-sudo netstat -tlnp | grep :3001
-sudo netstat -tlnp | grep :5000
-
-# 🆕 Güvenli process sonlandırma
-./port-manager.sh kill 3000
-./port-manager.sh kill 3001
-
-# 🆕 Alternatif port önerileri
-./port-manager.sh alternatives
-
-# Geleneksel yöntem
-sudo kill -9 PID
+# Database şifresini kontrol et
+cat /opt/oto-parca-panel/.env | grep POSTGRES_PASSWORD
 ```
 
 #### 3. PM2 Servisleri Çalışmıyor
