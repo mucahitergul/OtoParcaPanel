@@ -541,24 +541,178 @@ setup_firewall() {
     run_command "ufw --force enable" "Firewall etkinleştirildi"
 }
 
+# Akıllı proje tespit fonksiyonu
+find_project_directory() {
+    local current_pwd="$(pwd)"
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    # Temel arama yolları
+    local search_paths=(
+        "$current_pwd"
+        "$script_dir"
+        "/root/OtoParcaPanel"
+        "$HOME/OtoParcaPanel"
+        "/opt/OtoParcaPanel"
+        "/home/$SUDO_USER/OtoParcaPanel"
+        "$(dirname "$current_pwd")/OtoParcaPanel"
+        "$current_pwd/../OtoParcaPanel"
+        "$script_dir/../OtoParcaPanel"
+        "/tmp/OtoParcaPanel"
+        "/var/tmp/OtoParcaPanel"
+    )
+    
+    info "🔍 Proje dizini aranıyor..."
+    info "   Mevcut dizin: $current_pwd"
+    info "   Script dizini: $script_dir"
+    
+    # Önce temel yolları kontrol et
+    for path in "${search_paths[@]}"; do
+        if [[ -d "$path" ]]; then
+            info "   📁 Kontrol ediliyor: $path"
+            if [[ -f "$path/package.json" && -d "$path/frontend" && -d "$path/backend" ]]; then
+                success "   ✅ Proje dosyaları bulundu: $path"
+                echo "$path"
+                return 0
+            else
+                local missing_files=()
+                [[ ! -f "$path/package.json" ]] && missing_files+=("package.json")
+                [[ ! -d "$path/frontend" ]] && missing_files+=("frontend/")
+                [[ ! -d "$path/backend" ]] && missing_files+=("backend/")
+                warn "   ❌ Eksik dosyalar ($path): ${missing_files[*]}"
+            fi
+        else
+            info "   📁 Dizin mevcut değil: $path"
+        fi
+    done
+    
+    # find komutu ile daha geniş arama
+    info "🔍 Sistem genelinde arama yapılıyor..."
+    local find_paths=(
+        "/root"
+        "$HOME"
+        "/opt"
+        "/tmp"
+        "/var"
+    )
+    
+    for base_path in "${find_paths[@]}"; do
+        if [[ -d "$base_path" ]]; then
+            info "   🔍 $base_path altında aranıyor..."
+            local found_dirs
+            # find ile OtoParcaPanel dizinlerini ara (maksimum 3 seviye derinlik)
+            found_dirs=$(find "$base_path" -maxdepth 3 -type d -name "OtoParcaPanel" 2>/dev/null || true)
+            
+            if [[ -n "$found_dirs" ]]; then
+                while IFS= read -r dir; do
+                    if [[ -f "$dir/package.json" && -d "$dir/frontend" && -d "$dir/backend" ]]; then
+                        success "   ✅ find ile proje bulundu: $dir"
+                        echo "$dir"
+                        return 0
+                    else
+                        info "   📁 Eksik dosyalar: $dir"
+                    fi
+                done <<< "$found_dirs"
+            fi
+        fi
+    done
+    
+    # Son çare: package.json dosyasını ara
+    info "🔍 package.json dosyası aranıyor..."
+    local package_files
+    package_files=$(find /root /home /opt /tmp -name "package.json" -path "*/OtoParcaPanel/*" 2>/dev/null | head -5 || true)
+    
+    if [[ -n "$package_files" ]]; then
+        while IFS= read -r package_file; do
+            local package_dir="$(dirname "$package_file")"
+            info "   📦 package.json bulundu: $package_dir"
+            if [[ -d "$package_dir/frontend" && -d "$package_dir/backend" ]]; then
+                success "   ✅ Tam proje bulundu: $package_dir"
+                echo "$package_dir"
+                return 0
+            fi
+        done <<< "$package_files"
+    fi
+    
+    warn "❌ Hiçbir konumda tam proje dosyaları bulunamadı"
+    return 1
+}
+
 setup_project() {
     update_progress "Proje dosyaları hazırlanıyor..."
     
     local current_dir="$(pwd)"
+    info "🔍 Çalışma dizini: $current_dir"
     
-    # Mevcut dizinde proje dosyalarını kontrol et
+    # Debug: Mevcut dizindeki dosyaları listele
+    info "📁 Mevcut dizin içeriği:"
+    if command -v ls >/dev/null 2>&1; then
+        ls -la "$current_dir" 2>/dev/null | head -10 || echo "   Dizin listelenemedi"
+    fi
+    
+    # Dosya kontrollerini tek tek yap ve sonuçları göster
+    info "🔍 Dosya kontrolleri:"
+    [[ -f "$current_dir/package.json" ]] && info "   ✅ package.json bulundu" || warn "   ❌ package.json bulunamadı"
+    [[ -d "$current_dir/frontend" ]] && info "   ✅ frontend/ dizini bulundu" || warn "   ❌ frontend/ dizini bulunamadı"
+    [[ -d "$current_dir/backend" ]] && info "   ✅ backend/ dizini bulundu" || warn "   ❌ backend/ dizini bulunamadı"
+    [[ -d "$current_dir/scraper" ]] && info "   ✅ scraper/ dizini bulundu" || warn "   ❌ scraper/ dizini bulunamadı (opsiyonel)"
+    
+    # Eğer mevcut dizinde dosyalar bulunamazsa akıllı arama yap
     if [[ ! -f "$current_dir/package.json" || ! -d "$current_dir/frontend" || ! -d "$current_dir/backend" ]]; then
-        error "❌ Proje dosyaları bulunamadı!"
-        error "📋 Gerekli dosyalar:"
-        error "   • package.json"
-        error "   • frontend/ dizini"
-        error "   • backend/ dizini"
-        error ""
-        error "🔧 Çözüm: Önce projeyi git clone ile indirin:"
-        error "   git clone https://github.com/mucahitkayadan/OtoParcaPanel.git"
-        error "   cd OtoParcaPanel"
-        error "   sudo bash one-click-install.sh"
-        exit 1
+        warn "⚠️  Mevcut dizinde proje dosyaları eksik, alternatif konumlar aranıyor..."
+        
+        local project_dir
+        if project_dir=$(find_project_directory); then
+            info "✅ Proje dizini bulundu: $project_dir"
+            current_dir="$project_dir"
+        else
+            error "❌ Proje dosyaları hiçbir konumda bulunamadı!"
+            error ""
+            error "🔍 Arama Raporu:"
+            error "   • Mevcut dizin: $current_dir"
+            error "   • Script konumu: $(dirname "${BASH_SOURCE[0]}")"
+            error "   • Kullanıcı: ${SUDO_USER:-root}"
+            error "   • Ev dizini: $HOME"
+            error ""
+            error "📁 Mevcut dizin içeriği:"
+            if ls -la "$current_dir" 2>/dev/null; then
+                echo "   (Yukarıda listelendi)"
+            else
+                error "   Dizin okunamadı veya boş"
+            fi
+            error ""
+            error "📋 Gerekli dosyalar:"
+            error "   ✓ package.json (ana proje dosyası)"
+            error "   ✓ frontend/ (React/Next.js uygulaması)"
+            error "   ✓ backend/ (Node.js API sunucusu)"
+            error "   • scraper/ (Python scraper - opsiyonel)"
+            error ""
+            error "🔧 Çözüm Adımları:"
+            error ""
+            error "   📥 ADIM 1: Projeyi İndirin"
+            error "      git clone https://github.com/mucahitkayadan/OtoParcaPanel.git"
+            error "      # veya ZIP olarak indirin ve çıkarın"
+            error ""
+            error "   📂 ADIM 2: Proje Dizinine Geçin"
+            error "      cd OtoParcaPanel"
+            error "      # Dosyaların varlığını kontrol edin:"
+            error "      ls -la"
+            error ""
+            error "   🚀 ADIM 3: Kurulumu Başlatın"
+            error "      sudo bash one-click-install.sh"
+            error ""
+            error "   🔍 ADIM 4: Sorun Devam Ederse"
+            error "      # Proje dosyalarını manuel kontrol edin:"
+            error "      find /root /home /opt -name 'package.json' -path '*/OtoParcaPanel/*' 2>/dev/null"
+            error "      # Veya farklı konumda çalıştırın:"
+            error "      cd /path/to/your/OtoParcaPanel"
+            error "      sudo bash one-click-install.sh"
+            error ""
+            error "   📞 Destek:"
+            error "      • GitHub: https://github.com/mucahitkayadan/OtoParcaPanel/issues"
+            error "      • Bu hata mesajını ve 'ls -la' çıktısını paylaşın"
+            error ""
+            exit 1
+        fi
     fi
     
     success "✅ Proje dosyaları tespit edildi!"
@@ -568,8 +722,10 @@ setup_project() {
     [[ -d "$current_dir/backend" ]] && info "   ✓ backend/ dizini"
     [[ -d "$current_dir/scraper" ]] && info "   ✓ scraper/ dizini"
     [[ -f "$current_dir/docker-compose.yml" ]] && info "   ✓ docker-compose.yml"
+    [[ -f "$current_dir/one-click-install.sh" ]] && info "   ✓ one-click-install.sh"
     
     # Proje dizinini oluştur
+    info "📁 Hedef dizinler oluşturuluyor..."
     run_command "mkdir -p $INSTALL_DIR" "Proje dizini oluşturuldu"
     run_command "mkdir -p $INSTALL_DIR/data/postgres" "PostgreSQL veri dizini oluşturuldu"
     run_command "mkdir -p $INSTALL_DIR/data/redis" "Redis veri dizini oluşturuldu"
@@ -578,26 +734,83 @@ setup_project() {
     run_command "mkdir -p $INSTALL_DIR/ssl" "SSL dizini oluşturuldu"
     
     # Proje dosyalarını kopyala
-    info "Proje dosyaları $INSTALL_DIR dizinine kopyalanıyor..."
-    run_command "cp -r $current_dir/* $INSTALL_DIR/" "Proje dosyaları kopyalandı"
+    info "📋 Proje dosyaları $INSTALL_DIR dizinine kopyalanıyor..."
+    info "   Kaynak dizin: $current_dir"
+    info "   Hedef dizin: $INSTALL_DIR"
+    
+    # Dosya boyutunu kontrol et
+    local source_size
+    if command -v du >/dev/null 2>&1; then
+        source_size=$(du -sh "$current_dir" 2>/dev/null | cut -f1 || echo "bilinmiyor")
+        info "   Kopyalanacak veri boyutu: $source_size"
+    fi
+    
+    # Ana dosyaları kopyala
+    if ! run_command "cp -r $current_dir/* $INSTALL_DIR/" "Proje dosyaları kopyalandı"; then
+        error "❌ Dosya kopyalama başarısız!"
+        error "   Kaynak: $current_dir"
+        error "   Hedef: $INSTALL_DIR"
+        exit 1
+    fi
     
     # Gizli dosyaları da kopyala (varsa)
+    info "🔍 Gizli dosyalar kontrol ediliyor..."
     if ls "$current_dir"/.[^.]* 1> /dev/null 2>&1; then
-        run_command "cp -r $current_dir/.[^.]* $INSTALL_DIR/" "Gizli dosyalar kopyalandı"
+        info "   Gizli dosyalar bulundu, kopyalanıyor..."
+        if ! run_command "cp -r $current_dir/.[^.]* $INSTALL_DIR/" "Gizli dosyalar kopyalandı"; then
+            warn "⚠️  Gizli dosyalar kopyalanamadı (normal olabilir)"
+        fi
+    else
+        info "   Gizli dosya bulunamadı"
     fi
     
     # .git dizinini temizle (eğer varsa)
     if [[ -d "$INSTALL_DIR/.git" ]]; then
+        info "🧹 Git geçmişi temizleniyor..."
         run_command "rm -rf $INSTALL_DIR/.git" "Git geçmişi temizlendi"
     fi
     
+    # Kopyalama doğrulaması
+    info "✅ Kopyalama doğrulaması yapılıyor..."
+    local verification_failed=false
+    
+    if [[ ! -f "$INSTALL_DIR/package.json" ]]; then
+        error "   ❌ package.json kopyalanamadı"
+        verification_failed=true
+    fi
+    
+    if [[ ! -d "$INSTALL_DIR/frontend" ]]; then
+        error "   ❌ frontend/ dizini kopyalanamadı"
+        verification_failed=true
+    fi
+    
+    if [[ ! -d "$INSTALL_DIR/backend" ]]; then
+        error "   ❌ backend/ dizini kopyalanamadı"
+        verification_failed=true
+    fi
+    
+    if [[ "$verification_failed" == "true" ]]; then
+        error "❌ Dosya kopyalama doğrulaması başarısız!"
+        error "   Hedef dizin içeriği:"
+        ls -la "$INSTALL_DIR" 2>/dev/null || echo "   Dizin listelenemedi"
+        exit 1
+    fi
+    
     # İzinleri ayarla
+    info "🔐 Dosya izinleri ayarlanıyor..."
     if [[ -n "$SUDO_USER" ]]; then
-        run_command "chown -R $SUDO_USER:$SUDO_USER $INSTALL_DIR" "Dosya izinleri ayarlandı"
+        run_command "chown -R $SUDO_USER:$SUDO_USER $INSTALL_DIR" "Dosya sahipliği ayarlandı"
     fi
     run_command "chmod -R 755 $INSTALL_DIR" "Dizin izinleri ayarlandı"
     
-    success "✅ Proje dosyaları başarıyla hazırlandı"
+    # Son kontrol
+    local final_size
+    if command -v du >/dev/null 2>&1; then
+        final_size=$(du -sh "$INSTALL_DIR" 2>/dev/null | cut -f1 || echo "bilinmiyor")
+        info "   Kopyalanan veri boyutu: $final_size"
+    fi
+    
+    success "✅ Proje dosyaları başarıyla hazırlandı ($INSTALL_DIR)"
 }
 
 create_environment_files() {
