@@ -178,6 +178,8 @@ Kurulum scripti artık mevcut proje dosyalarını akıllıca tespit eder:
 - ✅ **Progress Tracking**: Renkli output ve ilerleme çubuğu
 - ✅ **Kurulum Doğrulama**: Tüm servislerin health check'i
 - ✅ **Rollback Desteği**: Başarısız kurumda otomatik geri alma
+- 🆕 **Gelişmiş PostgreSQL Kurulumu**: Otomatik authentication ve retry mekanizması
+- 🆕 **PostgreSQL Troubleshooting**: Otomatik sorun tespit ve düzeltme aracı
 
 #### 🆕 Gelişmiş Kurulum Özellikleri
 
@@ -235,6 +237,46 @@ CREATE DATABASE oto_parca_panel;
 CREATE USER oto_user WITH PASSWORD 'secure_password_123';
 GRANT ALL PRIVILEGES ON DATABASE oto_parca_panel TO oto_user;
 \q
+```
+
+#### 🆕 PostgreSQL Sorun Giderme
+
+PostgreSQL kurulumu sırasında sorun yaşarsanız, otomatik troubleshooting aracını kullanabilirsiniz:
+
+```bash
+# PostgreSQL troubleshooting aracını çalıştırın
+chmod +x postgresql-troubleshoot.sh
+sudo ./postgresql-troubleshoot.sh
+```
+
+**Troubleshooting Aracı Özellikleri:**
+- 🔍 **Otomatik Sorun Tespiti**: PostgreSQL kurulum ve servis durumu kontrolü
+- 🔧 **Authentication Düzeltme**: pg_hba.conf ayarlarını otomatik düzeltir
+- 🗄️ **Veritabanı Kontrolü**: Kullanıcı ve veritabanı varlığını kontrol eder
+- 🔗 **Bağlantı Testi**: Veritabanı bağlantısını test eder
+- 📋 **Log Analizi**: PostgreSQL loglarını analiz eder
+- ⚡ **Otomatik Düzeltme**: Tespit edilen sorunları otomatik olarak düzeltir
+
+**Manuel PostgreSQL Sorun Giderme:**
+
+```bash
+# PostgreSQL servis durumunu kontrol et
+systemctl status postgresql
+
+# PostgreSQL bağlantısını test et
+sudo -u postgres pg_isready
+
+# Veritabanı kullanıcısını kontrol et
+sudo -u postgres psql -c "\du"
+
+# Veritabanlarını listele
+sudo -u postgres psql -c "\l"
+
+# pg_hba.conf dosyasını kontrol et
+sudo nano /etc/postgresql/*/main/pg_hba.conf
+
+# PostgreSQL loglarını kontrol et
+sudo journalctl -u postgresql -f
 ```
 
 #### 4.4 Nginx Kurulumu

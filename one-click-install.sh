@@ -148,337 +148,6 @@ check_port() {
 }
 
 # =============================================================================
-# GITHUB CLONE FUNCTIONS
-# =============================================================================
-
-# Git kurulumu kontrolü ve kurulumu
-install_git() {
-    if ! command -v git &> /dev/null; then
-        info "Git kurulumu yapılıyor..."
-        run_command "apt update && apt install -y git" "Git kuruldu"
-    else
-        log "Git zaten kurulu: $(git --version)"
-    fi
-}
-
-# Network bağlantısı testi
-test_network_connectivity() {
-    local test_urls=("github.com" "raw.githubusercontent.com" "google.com")
-    
-    for url in "${test_urls[@]}"; do
-        if ping -c 1 "$url" &> /dev/null; then
-            log "Network bağlantısı test edildi: $url"
-            return 0
-        fi
-    done
-    
-    warn "Network bağlantısı sorunlu olabilir"
-    return 1
-}
-
-# Kapsamlı internet bağlantısı kontrolü
-check_internet_connectivity() {
-    local test_methods=(
-        "ping -c 1 google.com"
-        "ping -c 1 8.8.8.8"
-        "curl -s --connect-timeout 5 https://google.com"
-        "wget -q --spider --timeout=5 https://google.com"
-    )
-    
-    info "Internet bağlantısı test ediliyor..."
-    
-    # DNS çözümleme testi
-    if nslookup github.com &> /dev/null; then
-        log "DNS çözümleme çalışıyor"
-    else
-        warn "DNS çözümleme sorunu tespit edildi"
-        # Google DNS'i dene
-        echo "nameserver 8.8.8.8" > /etc/resolv.conf.backup
-        echo "nameserver 8.8.4.4" >> /etc/resolv.conf.backup
-        cp /etc/resolv.conf.backup /etc/resolv.conf
-        info "Google DNS ayarlandı"
-    fi
-    
-    # Farklı yöntemlerle bağlantı testi
-    for method in "${test_methods[@]}"; do
-        if eval "$method" &> /dev/null; then
-            log "Internet bağlantısı aktif: $method"
-            return 0
-        fi
-    done
-    
-    # Proxy kontrolü
-    if [[ -n "$http_proxy" || -n "$https_proxy" ]]; then
-        warn "Proxy ayarları tespit edildi: $http_proxy $https_proxy"
-        info "Proxy ayarlarını kontrol edin"
-    fi
-    
-    # Firewall kontrolü
-    if command -v ufw &> /dev/null && ufw status | grep -q "Status: active"; then
-        warn "UFW firewall aktif. Giden bağlantıları kontrol edin"
-    fi
-    
-    error "Internet bağlantısı bulunamadı. Kurulum için internet gereklidir."
-}
-
-# GitHub repository klonlama - Multiple fallback methods
-# Eksik proje dosyalarını GitHub'dan indir
-download_missing_files() {
-    local current_dir="$(pwd)"
-    local temp_clone_dir="/tmp/otoparca-temp-$(date +%s)"
-    
-    info "Eksik dosyalar GitHub'dan indiriliyor..."
-    
-    # Geçici dizinde tam projeyi klonla
-    if clone_full_project_to_temp "$temp_clone_dir"; then
-        # Eksik dosyaları tespit et ve kopyala
-        [[ ! -f "$INSTALL_DIR/package.json" && -f "$temp_clone_dir/package.json" ]] && \
-            cp "$temp_clone_dir/package.json" "$INSTALL_DIR/" && info "✓ package.json kopyalandı"
-        
-        [[ ! -d "$INSTALL_DIR/frontend" && -d "$temp_clone_dir/frontend" ]] && \
-            cp -r "$temp_clone_dir/frontend" "$INSTALL_DIR/" && info "✓ frontend/ dizini kopyalandı"
-        
-        [[ ! -d "$INSTALL_DIR/backend" && -d "$temp_clone_dir/backend" ]] && \
-            cp -r "$temp_clone_dir/backend" "$INSTALL_DIR/" && info "✓ backend/ dizini kopyalandı"
-        
-        [[ ! -d "$INSTALL_DIR/scraper" && -d "$temp_clone_dir/scraper" ]] && \
-            cp -r "$temp_clone_dir/scraper" "$INSTALL_DIR/" && info "✓ scraper/ dizini kopyalandı"
-        
-        [[ ! -f "$INSTALL_DIR/docker-compose.yml" && -f "$temp_clone_dir/docker-compose.yml" ]] && \
-            cp "$temp_clone_dir/docker-compose.yml" "$INSTALL_DIR/" && info "✓ docker-compose.yml kopyalandı"
-        
-        # Geçici dizini temizle
-        rm -rf "$temp_clone_dir"
-        success "✅ Eksik dosyalar başarıyla tamamlandı"
-        return 0
-    else
-        error "❌ Eksik dosyalar indirilemedi"
-        rm -rf "$temp_clone_dir"
-        return 1
-    fi
-}
-
-# Geçici dizine tam proje klonla
-clone_full_project_to_temp() {
-    local temp_dir="$1"
-    local repo_urls=(
-        "https://github.com/mucahitkayadan/OtoParcaPanel.git"
-        "https://github.com/YOUR_USERNAME/OtoParcaPanel.git"
-    )
-    
-    mkdir -p "$temp_dir"
-    
-    for repo_url in "${repo_urls[@]}"; do
-        if timeout 300 git clone --depth 1 "$repo_url" "$temp_dir" >> "$LOG_FILE" 2>&1; then
-            return 0
-        fi
-        rm -rf "$temp_dir" 2>/dev/null
-        mkdir -p "$temp_dir"
-    done
-    
-    return 1
-}
-
-clone_project_from_github() {
-    local repo_urls=(
-        "https://github.com/mucahitkayadan/OtoParcaPanel.git"
-        "https://github.com/YOUR_USERNAME/OtoParcaPanel.git"
-    )
-    
-    local zip_urls=(
-        "https://github.com/mucahitkayadan/OtoParcaPanel/archive/refs/heads/main.zip"
-        "https://github.com/YOUR_USERNAME/OtoParcaPanel/archive/refs/heads/main.zip"
-    )
-    
-    # Git kurulumunu kontrol et
-    install_git
-    
-    # Network bağlantısını test et
-    test_network_connectivity
-    
-    # Method 1: Git clone with HTTPS (with retry)
-    for repo_url in "${repo_urls[@]}"; do
-        info "GitHub'dan klonlanıyor: $repo_url"
-        
-        # Git clone with timeout and retry
-        for attempt in {1..3}; do
-            echo "[$(date +'%Y-%m-%d %H:%M:%S')] Git clone attempt $attempt: $repo_url" >> "$LOG_FILE"
-            
-            if timeout 300 git clone --depth 1 "$repo_url" "$INSTALL_DIR" >> "$LOG_FILE" 2>&1; then
-                log "Proje GitHub'dan başarıyla klonlandı (attempt $attempt)"
-                return 0
-            else
-                local exit_code=$?
-                warn "Git clone başarısız (attempt $attempt/$3): $repo_url (exit code: $exit_code)"
-                
-                # Cleanup partial clone
-                rm -rf "$INSTALL_DIR" 2>/dev/null
-                mkdir -p "$INSTALL_DIR"
-                
-                if [[ $attempt -lt 3 ]]; then
-                    info "2 saniye bekleyip tekrar denenecek..."
-                    sleep 2
-                fi
-            fi
-        done
-        
-        warn "Tüm git clone denemeleri başarısız: $repo_url"
-    done
-    
-    # Method 2: Download ZIP file (with retry and better error handling)
-    for zip_url in "${zip_urls[@]}"; do
-        info "ZIP dosyası indiriliyor: $zip_url"
-        local temp_zip="/tmp/otoparca-panel-$(date +%s).zip"
-        local temp_dir="/tmp/otoparca-extract-$(date +%s)"
-        
-        # Ensure unzip is available
-        if ! command -v unzip &> /dev/null; then
-            run_command_safe "apt update && apt install -y unzip" "Unzip kurulumu"
-        fi
-        
-        # Download with retry
-        for attempt in {1..3}; do
-            echo "[$(date +'%Y-%m-%d %H:%M:%S')] ZIP download attempt $attempt: $zip_url" >> "$LOG_FILE"
-            
-            if curl -L --connect-timeout 30 --max-time 300 --retry 2 "$zip_url" -o "$temp_zip" >> "$LOG_FILE" 2>&1; then
-                # Verify download
-                if [[ -f "$temp_zip" && -s "$temp_zip" ]]; then
-                    info "ZIP dosyası başarıyla indirildi ($(du -h $temp_zip | cut -f1))"
-                    
-                    # Extract ZIP
-                    mkdir -p "$temp_dir"
-                    if unzip -q "$temp_zip" -d "$temp_dir" >> "$LOG_FILE" 2>&1; then
-                        local extracted_dir=$(find "$temp_dir" -maxdepth 2 -name "*OtoParcaPanel*" -type d | head -1)
-                        
-                        if [[ -n "$extracted_dir" && -d "$extracted_dir" ]]; then
-                            # Copy files
-                            if cp -r "$extracted_dir"/* "$INSTALL_DIR/" >> "$LOG_FILE" 2>&1; then
-                                log "Proje ZIP'den başarıyla çıkarıldı"
-                                # Cleanup
-                                rm -rf "$temp_zip" "$temp_dir" 2>/dev/null
-                                return 0
-                            else
-                                warn "Dosya kopyalama başarısız"
-                            fi
-                        else
-                            warn "Çıkarılan dizin bulunamadı: $temp_dir"
-                            ls -la "$temp_dir" >> "$LOG_FILE" 2>&1
-                        fi
-                    else
-                        warn "ZIP çıkarma başarısız"
-                    fi
-                else
-                    warn "İndirilen dosya geçersiz veya boş"
-                fi
-                
-                # Cleanup failed attempt
-                rm -rf "$temp_zip" "$temp_dir" 2>/dev/null
-                
-                if [[ $attempt -lt 3 ]]; then
-                    info "3 saniye bekleyip tekrar denenecek..."
-                    sleep 3
-                fi
-            else
-                warn "ZIP indirme başarısız (attempt $attempt/3): $zip_url"
-                rm -rf "$temp_zip" 2>/dev/null
-                
-                if [[ $attempt -lt 3 ]]; then
-                    sleep 3
-                fi
-            fi
-        done
-        
-        warn "Tüm ZIP indirme denemeleri başarısız: $zip_url"
-    done
-    
-    # Method 3: Wget fallback
-    for zip_url in "${zip_urls[@]}"; do
-        if command -v wget &> /dev/null || apt install -y wget >> "$LOG_FILE" 2>&1; then
-            info "Wget ile indiriliyor: $zip_url"
-            local temp_zip="/tmp/otoparca-panel-wget.zip"
-            
-            if wget -q "$zip_url" -O "$temp_zip" >> "$LOG_FILE" 2>&1; then
-                if unzip -q "$temp_zip" -d "/tmp/" >> "$LOG_FILE" 2>&1; then
-                    local extracted_dir=$(find /tmp -maxdepth 1 -name "*OtoParcaPanel*" -type d | head -1)
-                    if [[ -n "$extracted_dir" ]]; then
-                        run_command "cp -r $extracted_dir/* $INSTALL_DIR/" "Proje Wget ile indirildi"
-                        run_command "rm -rf $temp_zip $extracted_dir" "Geçici dosyalar temizlendi"
-                        return 0
-                    fi
-                fi
-            fi
-        fi
-        warn "Wget indirme başarısız: $zip_url"
-    done
-    
-    # Method 4: Create minimal project structure
-    warn "GitHub'dan indirme başarısız. Minimal proje yapısı oluşturuluyor..."
-    create_minimal_project_structure
-}
-
-# Minimal proje yapısı oluşturma
-create_minimal_project_structure() {
-    info "Minimal proje yapısı oluşturuluyor..."
-    
-    # Temel dizinleri oluştur
-    mkdir -p "$INSTALL_DIR"/{frontend,backend,scraper,nginx,database}
-    
-    # Temel package.json dosyaları
-    cat > "$INSTALL_DIR/package.json" << 'EOF'
-{
-  "name": "oto-parca-panel",
-  "version": "1.0.0",
-  "description": "Otomotiv Yedek Parça Stok ve Fiyat Takip Sistemi",
-  "scripts": {
-    "install:all": "cd frontend && npm install && cd ../backend && npm install",
-    "build:all": "cd frontend && npm run build && cd ../backend && npm run build",
-    "start:prod": "pm2 start ecosystem.config.js"
-  }
-}
-EOF
-    
-    # Frontend package.json
-    cat > "$INSTALL_DIR/frontend/package.json" << 'EOF'
-{
-  "name": "oto-parca-frontend",
-  "version": "1.0.0",
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "next": "^14.0.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
-  }
-}
-EOF
-    
-    # Backend package.json
-    cat > "$INSTALL_DIR/backend/package.json" << 'EOF'
-{
-  "name": "oto-parca-backend",
-  "version": "1.0.0",
-  "scripts": {
-    "start": "node dist/main.js",
-    "start:dev": "nest start --watch",
-    "build": "nest build"
-  },
-  "dependencies": {
-    "@nestjs/core": "^10.0.0",
-    "@nestjs/common": "^10.0.0",
-    "express": "^4.18.0"
-  }
-}
-EOF
-    
-    log "Minimal proje yapısı oluşturuldu"
-    warn "Tam özellikli kurulum için GitHub repository'sine erişim gereklidir"
-}
-
-# =============================================================================
 # SYSTEM CHECKS
 # =============================================================================
 
@@ -514,9 +183,6 @@ check_system_requirements() {
     if [ "$available_disk" -lt 15 ]; then
         warn "Kullanılabilir disk alanı 20GB'dan az ($available_disk GB). Disk alanı yetersiz olabilir."
     fi
-    
-    # Internet bağlantısı kontrolü
-    check_internet_connectivity
     
     log "Sistem gereksinimleri kontrol edildi"
 }
@@ -875,93 +541,33 @@ setup_firewall() {
     run_command "ufw --force enable" "Firewall etkinleştirildi"
 }
 
-# Mevcut proje dosyalarını kontrol et
-check_existing_project() {
-    local current_dir="$(pwd)"
-    
-    info "Mevcut proje dosyaları kontrol ediliyor..."
-    
-    # Temel proje dosyalarını kontrol et
-    local has_package_json=false
-    local has_frontend=false
-    local has_backend=false
-    local has_scraper=false
-    local has_docker=false
-    
-    [[ -f "$current_dir/package.json" ]] && has_package_json=true
-    [[ -d "$current_dir/frontend" ]] && has_frontend=true
-    [[ -d "$current_dir/backend" ]] && has_backend=true
-    [[ -d "$current_dir/scraper" ]] && has_scraper=true
-    [[ -f "$current_dir/docker-compose.yml" ]] && has_docker=true
-    
-    # Proje dosyalarının durumunu raporla
-    if [[ "$has_package_json" == true && "$has_frontend" == true && "$has_backend" == true ]]; then
-        success "✅ Tam proje dosyaları tespit edildi!"
-        info "📁 Bulunan dosyalar:"
-        [[ "$has_package_json" == true ]] && info "   ✓ package.json"
-        [[ "$has_frontend" == true ]] && info "   ✓ frontend/ dizini"
-        [[ "$has_backend" == true ]] && info "   ✓ backend/ dizini"
-        [[ "$has_scraper" == true ]] && info "   ✓ scraper/ dizini"
-        [[ "$has_docker" == true ]] && info "   ✓ docker-compose.yml"
-        
-        info "🚀 GitHub clone işlemi atlanacak, mevcut dosyalar kullanılacak"
-        return 0
-    elif [[ "$has_package_json" == true || "$has_frontend" == true || "$has_backend" == true ]]; then
-        warn "⚠️  Kısmi proje dosyaları tespit edildi"
-        info "📁 Bulunan dosyalar:"
-        [[ "$has_package_json" == true ]] && info "   ✓ package.json" || info "   ✗ package.json eksik"
-        [[ "$has_frontend" == true ]] && info "   ✓ frontend/ dizini" || info "   ✗ frontend/ dizini eksik"
-        [[ "$has_backend" == true ]] && info "   ✓ backend/ dizini" || info "   ✗ backend/ dizini eksik"
-        [[ "$has_scraper" == true ]] && info "   ✓ scraper/ dizini" || info "   ✗ scraper/ dizini eksik"
-        
-        warn "🔄 Eksik dosyalar GitHub'dan indirilecek"
-        return 1
-    else
-        info "📂 Proje dosyaları bulunamadı"
-        info "⬇️  Tam proje GitHub'dan klonlanacak"
-        return 2
-    fi
-}
-
-# Mevcut proje dosyalarını kullan
-use_existing_project_files() {
-    local current_dir="$(pwd)"
-    
-    info "Mevcut proje dosyaları $INSTALL_DIR dizinine kopyalanıyor..."
-    
-    # Güvenlik için backup oluştur
-    if [[ -d "$INSTALL_DIR" ]]; then
-        local backup_dir="$INSTALL_DIR.backup.$(date +%Y%m%d_%H%M%S)"
-        run_command "cp -r $INSTALL_DIR $backup_dir" "Mevcut kurulum yedeklendi: $backup_dir"
-    fi
-    
-    # Proje dosyalarını kopyala (gizli dosyalar dahil)
-    run_command "cp -r $current_dir/. $INSTALL_DIR/" "Proje dosyaları kopyalandı"
-    
-    # .git dizinini temizle (eğer varsa)
-    if [[ -d "$INSTALL_DIR/.git" ]]; then
-        run_command "rm -rf $INSTALL_DIR/.git" "Git geçmişi temizlendi"
-    fi
-    
-    # Dosya bütünlüğünü kontrol et
-    local integrity_check=true
-    [[ ! -f "$INSTALL_DIR/package.json" ]] && integrity_check=false
-    [[ ! -d "$INSTALL_DIR/frontend" ]] && integrity_check=false
-    [[ ! -d "$INSTALL_DIR/backend" ]] && integrity_check=false
-    
-    if [[ "$integrity_check" == false ]]; then
-        error "❌ Dosya kopyalama işlemi başarısız!"
-        error "🔄 GitHub clone yöntemine geçiliyor..."
-        clone_project_from_github
-        return 1
-    fi
-    
-    success "✅ Mevcut proje dosyaları başarıyla kopyalandı"
-    return 0
-}
-
 setup_project() {
     update_progress "Proje dosyaları hazırlanıyor..."
+    
+    local current_dir="$(pwd)"
+    
+    # Mevcut dizinde proje dosyalarını kontrol et
+    if [[ ! -f "$current_dir/package.json" || ! -d "$current_dir/frontend" || ! -d "$current_dir/backend" ]]; then
+        error "❌ Proje dosyaları bulunamadı!"
+        error "📋 Gerekli dosyalar:"
+        error "   • package.json"
+        error "   • frontend/ dizini"
+        error "   • backend/ dizini"
+        error ""
+        error "🔧 Çözüm: Önce projeyi git clone ile indirin:"
+        error "   git clone https://github.com/mucahitkayadan/OtoParcaPanel.git"
+        error "   cd OtoParcaPanel"
+        error "   sudo bash one-click-install.sh"
+        exit 1
+    fi
+    
+    success "✅ Proje dosyaları tespit edildi!"
+    info "📁 Bulunan dosyalar:"
+    [[ -f "$current_dir/package.json" ]] && info "   ✓ package.json"
+    [[ -d "$current_dir/frontend" ]] && info "   ✓ frontend/ dizini"
+    [[ -d "$current_dir/backend" ]] && info "   ✓ backend/ dizini"
+    [[ -d "$current_dir/scraper" ]] && info "   ✓ scraper/ dizini"
+    [[ -f "$current_dir/docker-compose.yml" ]] && info "   ✓ docker-compose.yml"
     
     # Proje dizinini oluştur
     run_command "mkdir -p $INSTALL_DIR" "Proje dizini oluşturuldu"
@@ -971,35 +577,27 @@ setup_project() {
     run_command "mkdir -p $INSTALL_DIR/backups" "Backup dizini oluşturuldu"
     run_command "mkdir -p $INSTALL_DIR/ssl" "SSL dizini oluşturuldu"
     
-    # Mevcut proje dosyalarını kontrol et
-    check_existing_project
-    local project_status=$?
+    # Proje dosyalarını kopyala
+    info "Proje dosyaları $INSTALL_DIR dizinine kopyalanıyor..."
+    run_command "cp -r $current_dir/* $INSTALL_DIR/" "Proje dosyaları kopyalandı"
     
-    case $project_status in
-         0)
-             # Tam proje dosyaları mevcut
-             use_existing_project_files
-             ;;
-         1)
-             # Kısmi dosyalar mevcut - eksikleri tamamla
-             warn "Kısmi proje tespit edildi, eksik dosyalar GitHub'dan indirilecek"
-             # Önce mevcut dosyaları kopyala
-             use_existing_project_files
-             # Sonra eksik dosyaları indir
-             download_missing_files
-             ;;
-         2)
-             # Proje dosyaları yok - tam clone
-             info "Proje dosyaları bulunamadı, GitHub'dan klonlanacak"
-             clone_project_from_github
-             ;;
-     esac
+    # Gizli dosyaları da kopyala (varsa)
+    if ls "$current_dir"/.[^.]* 1> /dev/null 2>&1; then
+        run_command "cp -r $current_dir/.[^.]* $INSTALL_DIR/" "Gizli dosyalar kopyalandı"
+    fi
+    
+    # .git dizinini temizle (eğer varsa)
+    if [[ -d "$INSTALL_DIR/.git" ]]; then
+        run_command "rm -rf $INSTALL_DIR/.git" "Git geçmişi temizlendi"
+    fi
     
     # İzinleri ayarla
     if [[ -n "$SUDO_USER" ]]; then
         run_command "chown -R $SUDO_USER:$SUDO_USER $INSTALL_DIR" "Dosya izinleri ayarlandı"
     fi
     run_command "chmod -R 755 $INSTALL_DIR" "Dizin izinleri ayarlandı"
+    
+    success "✅ Proje dosyaları başarıyla hazırlandı"
 }
 
 create_environment_files() {
