@@ -12,6 +12,41 @@ Bu otomatik kurulum aracı, OtoParcaPanel projesini Hetzner Ubuntu 24.04 sunucus
 - 💾 **Yedekleme**: Mevcut dosyaların otomatik yedeklenmesi
 - ✔️ **Doğrulama**: Kurulum sonrası otomatik testler
 
+## 🚀 Hızlı Başlangıç
+
+### Tek Komutla Kurulum
+```bash
+sudo bash quick-install.sh
+```
+
+### Manuel Kurulum Seçenekleri
+
+#### İnteraktif Kurulum (Varsayılan)
+```bash
+chmod +x auto-installer.sh
+sudo ./auto-installer.sh
+```
+
+#### Otomatik Kurulum (Non-Interactive)
+```bash
+sudo ./auto-installer.sh --non-interactive
+```
+
+#### Debug Modunda Kurulum
+```bash
+sudo ./auto-installer.sh --debug
+```
+
+#### Otomatik + Debug Kurulum
+```bash
+sudo ./auto-installer.sh --non-interactive --debug
+```
+
+#### Yardım
+```bash
+sudo ./auto-installer.sh --help
+```
+
 ## 🛠️ Kurulum Adımları
 
 ### 1. Ön Gereksinimler
@@ -272,6 +307,48 @@ tar -czf otoparcapanel_backup_$(date +%Y%m%d).tar.gz /opt/otoparcapanel
 ```
 
 ## 📞 Destek
+
+- **Log Dosyası**: `/var/log/otoparca-installer.log`
+- **Hata Logları**: `/var/log/otoparca-installer-error.log`
+- **Backup Dizini**: `/var/backups/otoparca-installer/`
+
+### Sorun Giderme
+
+#### Script Takılma Sorunları
+
+Eğer script bir adımda takılıyorsa:
+
+1. **Debug modunda çalıştırın**:
+   ```bash
+   sudo ./auto-installer.sh --debug
+   ```
+
+2. **Non-interactive mode kullanın**:
+   ```bash
+   sudo ./auto-installer.sh --non-interactive
+   ```
+
+3. **Timeout ayarları**: Script artık 30-60 saniye timeout kullanır
+
+4. **Log dosyalarını kontrol edin**:
+   ```bash
+   tail -f /var/log/otoparca-installer.log
+   tail -f /var/log/otoparca-installer-error.log
+   ```
+
+#### Genel Sorun Giderme
+
+1. **Sistem gereksinimlerini doğrulayın**
+2. **İnternet bağlantısını test edin**
+3. **DNS ayarlarını kontrol edin**
+4. **Root yetkisiyle çalıştırdığınızdan emin olun**
+
+#### Yaygın Hatalar
+
+- **"Permission denied"**: `sudo` kullanın
+- **"Command not found"**: Sistem güncellemesi yapın
+- **"Timeout"**: Non-interactive mode deneyin
+- **"DNS resolution failed"**: Domain DNS ayarlarını kontrol edin
 
 Sorun yaşadığınızda:
 

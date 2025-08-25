@@ -1,7 +1,59 @@
 #!/bin/bash
 
-# OtoParcaPanel Quick Install Script
-# Bu script kurulum dosyalarını hazırlar ve ana installer'ı başlatır
+# OtoParcaPanel Quick Installer
+# Bu script otomatik kurulum aracını hızlıca başlatır
+
+echo "🚗 OtoParcaPanel Hızlı Kurulum Başlatılıyor..."
+echo "==========================================="
+echo
+echo "Kullanım seçenekleri:"
+echo "1. İnteraktif kurulum (varsayılan)"
+echo "2. Otomatik kurulum (non-interactive)"
+echo "3. Debug modunda kurulum"
+echo "4. Otomatik + Debug kurulum"
+echo
+
+# Script'in bulunduğu dizini al
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Kullanıcı seçimi
+echo "Seçiminizi yapın [1-4] (varsayılan: 1):"
+read -t 30 -r choice || choice=1
+
+case $choice in
+    1)
+        echo "İnteraktif kurulum başlatılıyor..."
+        PARAMS=""
+        ;;
+    2)
+        echo "Otomatik kurulum başlatılıyor..."
+        PARAMS="--non-interactive"
+        ;;
+    3)
+        echo "Debug modunda kurulum başlatılıyor..."
+        PARAMS="--debug"
+        ;;
+    4)
+        echo "Otomatik + Debug kurulum başlatılıyor..."
+        PARAMS="--non-interactive --debug"
+        ;;
+    *)
+        echo "Geçersiz seçim. İnteraktif kurulum başlatılıyor..."
+        PARAMS=""
+        ;;
+esac
+
+echo
+
+# Ana installer'ı çalıştır
+if [ -f "$SCRIPT_DIR/auto-installer.sh" ]; then
+    chmod +x "$SCRIPT_DIR/auto-installer.sh"
+    sudo bash "$SCRIPT_DIR/auto-installer.sh" $PARAMS
+else
+    echo "❌ HATA: auto-installer.sh dosyası bulunamadı!"
+    echo "Lütfen dosyaların tam olduğundan emin olun."
+    exit 1
+fi
 
 set -e
 

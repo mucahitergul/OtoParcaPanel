@@ -105,6 +105,16 @@ show_spinner() {
 confirm() {
     local message=$1
     local default=${2:-"n"}
+    local timeout=${3:-30}
+    
+    # Non-interactive mode kontrolü
+    if [ "$NON_INTERACTIVE" = "true" ]; then
+        print_info "Non-interactive mode: '$message' -> $default"
+        case "$default" in
+            [yY]) return 0 ;;
+            *) return 1 ;;
+        esac
+    fi
     
     if [ "$default" = "y" ]; then
         local prompt="[Y/n]"
@@ -112,10 +122,15 @@ confirm() {
         local prompt="[y/N]"
     fi
     
-    echo -e "${YELLOW}$message $prompt${NC}"
-    read -r response
+    echo -e "${YELLOW}$message $prompt (${timeout}s timeout)${NC}"
     
-    if [ -z "$response" ]; then
+    # Timeout ile input al
+    if read -t "$timeout" -r response; then
+        if [ -z "$response" ]; then
+            response=$default
+        fi
+    else
+        print_warning "Timeout! Varsayılan değer kullanılıyor: $default"
         response=$default
     fi
     

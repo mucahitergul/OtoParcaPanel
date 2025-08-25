@@ -1,11 +1,48 @@
 #!/bin/bash
 
 # OtoParcaPanel Auto Installer
-# Version: 1.0
+# Version: 1.1
 # Description: Otomatik kurulum scripti - Ubuntu 24.04 için
-# Usage: sudo bash auto-installer.sh
+# Usage: sudo bash auto-installer.sh [--non-interactive] [--debug]
 
 set -e  # Hata durumunda çık
+
+# Komut satırı argümanları
+NON_INTERACTIVE=false
+DEBUG=false
+
+for arg in "$@"; do
+    case $arg in
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+        --debug)
+            DEBUG=true
+            set -x  # Debug mode
+            shift
+            ;;
+        --help)
+            echo "Kullanım: sudo bash auto-installer.sh [seçenekler]"
+            echo "Seçenekler:"
+            echo "  --non-interactive    Kullanıcı etkileşimi olmadan çalıştır"
+            echo "  --debug             Debug modunda çalıştır"
+            echo "  --help              Bu yardım mesajını göster"
+            exit 0
+            ;;
+        *)
+            echo "Bilinmeyen argüman: $arg"
+            echo "Yardım için: sudo bash auto-installer.sh --help"
+            exit 1
+            ;;
+    esac
+done
+
+# Debug output
+if [ "$DEBUG" = "true" ]; then
+    echo "DEBUG: Non-interactive mode: $NON_INTERACTIVE"
+    echo "DEBUG: Debug mode: $DEBUG"
+fi
 
 # Script dizini
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,7 +69,11 @@ CURRENT_STEP=0
 # Adım sayacı
 next_step() {
     ((CURRENT_STEP++))
+    if [ "$DEBUG" = "true" ]; then
+        echo "DEBUG: Step $CURRENT_STEP/$TOTAL_STEPS: $1"
+    fi
     show_progress $CURRENT_STEP $TOTAL_STEPS "$1"
+    log_message "STEP $CURRENT_STEP/$TOTAL_STEPS: $1"
 }
 
 # Başlangıç banner
@@ -54,43 +95,71 @@ show_banner() {
 collect_user_input() {
     print_header "KURULUM BİLGİLERİ"
     
+    # Non-interactive mode için varsayılan değerler
+    if [ "$NON_INTERACTIVE" = "true" ]; then
+        DOMAIN_NAME="otopanel.isletmemdijitalde.com"
+        EMAIL_ADDRESS="admin@otopanel.isletmemdijitalde.com"
+        DB_PASSWORD="OtoParca123!"
+        print_info "Non-interactive mode: Varsayılan değerler kullanılıyor"
+        print_info "Domain: $DOMAIN_NAME"
+        print_info "Email: $EMAIL_ADDRESS"
+        print_info "DB Password: [HIDDEN]"
+        return 0
+    fi
+    
     # Domain adı
     while [ -z "$DOMAIN_NAME" ]; do
         echo -e "${CYAN}Domain adınızı girin (örn: otopanel.isletmemdijitalde.com):${NC}"
-        read -r DOMAIN_NAME
-        if [ -z "$DOMAIN_NAME" ]; then
-            print_error "Domain adı boş olamaz!"
+        if read -t 60 -r DOMAIN_NAME; then
+            if [ -z "$DOMAIN_NAME" ]; then
+                print_error "Domain adı boş olamaz!"
+            fi
+        else
+            print_warning "Timeout! Varsayılan domain kullanılıyor: otopanel.isletmemdijitalde.com"
+            DOMAIN_NAME="otopanel.isletmemdijitalde.com"
         fi
     done
     
     # Email adresi
     while [ -z "$EMAIL_ADDRESS" ]; do
         echo -e "${CYAN}Email adresinizi girin (SSL sertifikası için):${NC}"
-        read -r EMAIL_ADDRESS
-        if [ -z "$EMAIL_ADDRESS" ]; then
-            print_error "Email adresi boş olamaz!"
+        if read -t 60 -r EMAIL_ADDRESS; then
+            if [ -z "$EMAIL_ADDRESS" ]; then
+                print_error "Email adresi boş olamaz!"
+            fi
+        else
+            print_warning "Timeout! Varsayılan email kullanılıyor: admin@$DOMAIN_NAME"
+            EMAIL_ADDRESS="admin@$DOMAIN_NAME"
         fi
     done
     
     # Veritabanı şifresi
     while [ -z "$DB_PASSWORD" ]; do
         echo -e "${CYAN}PostgreSQL veritabanı şifresi oluşturun:${NC}"
-        read -s DB_PASSWORD
-        echo
-        if [ -z "$DB_PASSWORD" ]; then
-            print_error "Veritabanı şifresi boş olamaz!"
-        elif [ ${#DB_PASSWORD} -lt 8 ]; then
-            print_error "Şifre en az 8 karakter olmalıdır!"
-            DB_PASSWORD=""
+        if read -t 60 -s DB_PASSWORD; then
+            echo
+            if [ -z "$DB_PASSWORD" ]; then
+                print_error "Veritabanı şifresi boş olamaz!"
+            elif [ ${#DB_PASSWORD} -lt 8 ]; then
+                print_error "Şifre en az 8 karakter olmalıdır!"
+                DB_PASSWORD=""
+            fi
+        else
+            echo
+            print_warning "Timeout! Güçlü varsayılan şifre oluşturuluyor"
+            DB_PASSWORD="OtoParca$(date +%s)!"
         fi
     done
     
     # GitHub repo (opsiyonel)
     echo -e "${CYAN}GitHub repository URL'si (Enter ile varsayılan):${NC}"
     echo -e "${YELLOW}Varsayılan: $GITHUB_REPO${NC}"
-    read -r github_input
-    if [ -n "$github_input" ]; then
-        GITHUB_REPO="$github_input"
+    if read -t 30 -r github_input; then
+        if [ -n "$github_input" ]; then
+            GITHUB_REPO="$github_input"
+        fi
+    else
+        print_warning "Timeout! Varsayılan GitHub repo kullanılıyor"
     fi
     
     # Bilgileri onaylat
@@ -101,7 +170,7 @@ collect_user_input() {
     echo -e "${WHITE}Proje Dizini:${NC} $PROJECT_DIR"
     echo
     
-    if ! confirm "Bu bilgilerle kuruluma devam edilsin mi?" "y"; then
+    if ! confirm "Bu bilgilerle kuruluma devam edilsin mi?" "y" 30; then
         print_info "Kurulum iptal edildi."
         exit 0
     fi
@@ -440,7 +509,7 @@ setup_ssl() {
     print_info "DNS kontrolü yapılıyor..."
     if ! nslookup "$DOMAIN_NAME" &> /dev/null; then
         print_warning "DNS kaydı bulunamadı. Lütfen domain'in bu sunucuya yönlendirildiğinden emin olun."
-        if ! confirm "DNS ayarları tamamlandı ve devam etmek istiyor musunuz?"; then
+        if ! confirm "DNS ayarları tamamlandı ve devam etmek istiyor musunuz?" "y" 60; then
             print_error "SSL kurulumu iptal edildi"
             return 1
         fi
