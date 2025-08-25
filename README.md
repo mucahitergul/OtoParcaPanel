@@ -146,6 +146,28 @@ chmod +x one-click-install.sh
 sudo ./one-click-install.sh
 ```
 
+**🆕 Akıllı Proje Tespit Sistemi:**
+
+Kurulum scripti artık mevcut proje dosyalarını akıllıca tespit eder:
+
+- ✅ **Tam Proje Tespiti**: Eğer `package.json`, `frontend/`, `backend/` ve `scraper/` dizinleri mevcutsa GitHub clone işlemi atlanır
+- ✅ **Kısmi Proje Tespiti**: Bazı dosyalar eksikse sadece eksik olanlar GitHub'dan indirilir
+- ✅ **Güvenli Kopyalama**: Mevcut dosyalar yedeklenir ve güvenli şekilde kopyalanır
+- ✅ **Bütünlük Kontrolü**: Kopyalanan dosyaların doğruluğu kontrol edilir
+- ✅ **Rollback Desteği**: Hata durumunda otomatik geri alma
+
+```bash
+# Örnek çıktı:
+# ✅ Tam proje dosyaları tespit edildi!
+# 📁 Bulunan dosyalar:
+#    ✓ package.json
+#    ✓ frontend/ dizini
+#    ✓ backend/ dizini
+#    ✓ scraper/ dizini
+#    ✓ docker-compose.yml
+# 🚀 GitHub clone işlemi atlanacak, mevcut dosyalar kullanılacak
+```
+
 **One-Click Kurulum Özellikleri:**
 - ✅ **Otomatik Sistem Kontrolü**: RAM, disk, internet bağlantısı
 - ✅ **Akıllı Port Yönetimi**: Çakışan portları otomatik çözer
