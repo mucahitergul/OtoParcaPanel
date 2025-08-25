@@ -10,15 +10,15 @@
 
 Oto Parça Panel, otomotiv yedek parça satıcıları için geliştirilmiş **enterprise-grade** stok ve fiyat takip sistemidir. Sistem, tedarikçi fiyatlarını otomatik olarak takip eder, stok durumlarını günceller ve WooCommerce entegrasyonu ile e-ticaret sitelerinizi senkronize eder.
 
-## ⚡ Hızlı Kurulum - Ubuntu 22.04 LTS
+## ⚡ Hızlı Kurulum - Hetzner Cloud Ubuntu 22.04 LTS
 
-### 🎯 Tek Komutla Tam Kurulum (5 Dakika)
+### 🎯 Tek Komutla Tam Kurulum (5-10 Dakika)
 
 ```bash
-# Ubuntu 22.04 sunucusunda tek komut ile kurulum:
-wget -O ubuntu-installer.sh https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/ubuntu-installer.sh
-chmod +x ubuntu-installer.sh
-sudo ./ubuntu-installer.sh yourdomain.com
+# Hetzner Cloud Ubuntu 22.04 sunucusunda tek komut ile kurulum:
+wget -O hetzner-install.sh https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/hetzner-install.sh
+chmod +x hetzner-install.sh
+sudo ./hetzner-install.sh yourdomain.com
 ```
 
 **Kurulum sırasında sadece 2 bilgi istenir:**
@@ -41,17 +41,17 @@ sudo ./ubuntu-installer.sh yourdomain.com
 **Production (Let's Encrypt - Önerilen):**
 ```bash
 # Ana domain ile kurulum
-sudo ./ubuntu-installer.sh otoparca.com
+sudo ./hetzner-install.sh otoparca.com
 
 # Subdomain ile kurulum
-sudo ./ubuntu-installer.sh panel.otoparca.com
-sudo ./ubuntu-installer.sh api.otoparca.com
+sudo ./hetzner-install.sh panel.otoparca.com
+sudo ./hetzner-install.sh api.otoparca.com
 ```
 
 **Development (Self-Signed):**
 ```bash
 # Domain parametresi olmadan
-sudo ./ubuntu-installer.sh
+sudo ./hetzner-install.sh
 ```
 
 ## 🛠️ Teknoloji Stack
@@ -88,19 +88,22 @@ sudo ./ubuntu-installer.sh
 
 ## 📋 Sistem Gereksinimleri
 
-### Minimum Gereksinimler
-- **OS**: Ubuntu 22.04 LTS
-- **CPU**: 2 vCPU
-- **RAM**: 4 GB
-- **Disk**: 20 GB SSD
-- **Network**: 100 Mbps
+### Hetzner Cloud Gereksinimleri
 
-### Önerilen Gereksinimler (Production)
+#### Minimum (Test/Demo)
+- **Server**: CX11 (1 vCPU, 4GB RAM, 40GB SSD)
 - **OS**: Ubuntu 22.04 LTS
-- **CPU**: 4 vCPU
-- **RAM**: 8 GB
-- **Disk**: 50 GB SSD
-- **Network**: 1 Gbps
+- **Network**: 20 TB trafik
+
+#### Önerilen (Küçük İşletme)
+- **Server**: CX21 (2 vCPU, 4GB RAM, 40GB SSD)
+- **OS**: Ubuntu 22.04 LTS
+- **Network**: 20 TB trafik
+
+#### Production (Orta/Büyük İşletme)
+- **Server**: CX31+ (2+ vCPU, 8+ GB RAM, 80+ GB SSD)
+- **OS**: Ubuntu 22.04 LTS
+- **Network**: 20 TB trafik
 
 ## 🚀 Özellikler
 
@@ -125,35 +128,38 @@ sudo ./ubuntu-installer.sh
 - **💾 Backup Strategy**: Otomatik PostgreSQL backup ve recovery
 - **🔐 Security Hardening**: Non-root containers, firewall, security scanning
 
-## 🏗️ ubuntu-installer.sh Özellikleri
+## 🏗️ hetzner-install.sh Özellikleri
 
 ### ✨ Kurulum Aracının Avantajları
 
-- **✅ Ubuntu 22.04 LTS Uyumluluğu** - Tam optimize edilmiş
+- **✅ Hetzner Cloud Optimizasyonu** - CX11/CX21/CX31+ için optimize edilmiş
 - **✅ Tek Komutla Kurulum** - 5-10 dakikada hazır sistem
+- **✅ Subdomain Desteği** - panel.domain.com gibi subdomainler desteklenir
 - **✅ Akıllı Hata Yönetimi** - Rollback mekanizması ile güvenli kurulum
-- **✅ Port Çakışması Çözümü** - Otomatik tespit ve çözüm
+- **✅ Resource Optimizasyonu** - Hetzner server tipine göre otomatik ayarlama
 - **✅ SSL Otomasyonu** - Let's Encrypt otomatik kurulum ve yenileme
-- **✅ Güvenlik Optimizasyonu** - Production-ready güvenlik ayarları
-- **✅ Performance Tuning** - Sistem kaynaklarına göre optimizasyon
+- **✅ UFW Firewall** - Production-ready güvenlik ayarları
+- **✅ Docker Optimizasyonu** - Hetzner SSD'leri için optimize edilmiş
 - **✅ Monitoring Setup** - Prometheus ve Grafana otomatik kurulum
-- **✅ Backup Configuration** - Otomatik backup stratejisi
-- **✅ Health Checks** - Sistem sağlık kontrolü ve alerting
+- **✅ Log Management** - Otomatik log rotation ve temizlik
 
-### 🔧 Kurulum Süreci
+### 🔧 Kurulum Süreci (15 Adım)
 
-1. **Sistem Kontrolü** - OS, RAM, disk alanı kontrolü
-2. **Bağımlılık Kurulumu** - Docker, Node.js, PostgreSQL, Redis
-3. **Port Yönetimi** - Çakışan portları tespit et ve çöz
-4. **SSL Kurulumu** - Let's Encrypt veya self-signed sertifika
-5. **Database Setup** - PostgreSQL kurulum ve initialization
-6. **Container Build** - Production Docker images
-7. **Service Start** - Tüm servisleri başlat ve test et
-8. **Health Check** - Sistem sağlık kontrolü
-9. **Monitoring** - Prometheus ve Grafana kurulum
-10. **Backup Setup** - Otomatik backup konfigürasyonu
-11. **Security Hardening** - Firewall ve güvenlik ayarları
-12. **Final Verification** - Tam sistem testi
+1. **Sistem Kontrolü** - Hetzner server tipi tespiti
+2. **Domain Girişi** - İnteraktif domain ve SSL yapılandırması
+3. **Gereksinim Kontrolü** - OS, RAM, disk alanı kontrolü
+4. **Şifre Üretimi** - Güvenli şifreler oluşturma
+5. **Sistem Güncelleme** - Ubuntu paketlerini güncelleme
+6. **Docker Kurulumu** - Docker Engine ve Compose kurulumu
+7. **Proje İndirme** - Git repository'den proje indirme
+8. **Environment Setup** - Yapılandırma dosyalarını oluşturma
+9. **Firewall Ayarları** - UFW firewall yapılandırması
+10. **SSL Kurulumu** - Let's Encrypt veya self-signed sertifika
+11. **Docker Optimizasyonu** - Hetzner için resource optimizasyonu
+12. **Nginx Konfigürasyonu** - Reverse proxy yapılandırması
+13. **Servis Build** - Docker images'ları build etme
+14. **Monitoring Setup** - Prometheus ve Grafana kurulumu
+15. **Sağlık Kontrolü** - Final sistem testleri
 
 ## 🛡️ Production Security
 
@@ -174,7 +180,7 @@ sudo ./ubuntu-installer.sh
 
 ```bash
 # Let's Encrypt otomatik kurulum
-sudo ./ubuntu-installer.sh yourdomain.com
+sudo ./hetzner-install.sh yourdomain.com
 
 # SSL sertifikası otomatik yenileme (crontab)
 0 12 * * * /usr/bin/certbot renew --quiet
@@ -258,13 +264,13 @@ https://yourdomain.com:3002
 
 2. **Kurulum Aracını İndir**
    ```bash
-   wget -O ubuntu-installer.sh https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/ubuntu-installer.sh
-   chmod +x ubuntu-installer.sh
+   wget -O hetzner-install.sh https://raw.githubusercontent.com/YOUR_USERNAME/OtoParcaPanel/main/hetzner-install.sh
+   chmod +x hetzner-install.sh
    ```
 
 3. **Production Kurulum**
    ```bash
-   sudo ./ubuntu-installer.sh yourdomain.com
+   sudo ./hetzner-install.sh yourdomain.com
    ```
 
 4. **Kurulum Doğrulama**
@@ -330,7 +336,7 @@ sudo systemctl stop apache2
 sudo systemctl stop nginx
 
 # Kurulumu tekrar çalıştır
-sudo ./ubuntu-installer.sh yourdomain.com
+sudo ./hetzner-install.sh yourdomain.com
 ```
 
 #### 🔒 SSL Sertifika Sorunları
@@ -389,17 +395,19 @@ docker-compose logs -f frontend
 ### 🆘 Acil Durum Kurtarma
 
 ```bash
-# Rollback işlemi
-sudo ./ubuntu-installer.sh --rollback
+# Servisleri durdur ve temizle
+cd /opt/oto-parca-panel
+docker-compose down
+docker system prune -f
 
 # Backup restore
-./backup/scripts/restore.sh latest
+./backups/restore.sh latest
 
-# Service restart
-sudo systemctl restart otoparcapanel
+# Servisleri yeniden başlat
+docker-compose up -d
 
 # Health check
-./healthcheck.sh
+curl https://yourdomain.com/health
 ```
 
 ## 📚 API Dokümantasyonu
