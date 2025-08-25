@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { authApi } from '../../lib/api';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Geçerli bir email adresi giriniz'),
@@ -31,12 +32,11 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
     try {
-      // TODO: Implement forgot password API call
-      // For now, just show success message
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await authApi.forgotPassword(data);
       setIsSubmitted(true);
       toast.success('Şifre sıfırlama bağlantısı email adresinize gönderildi!');
     } catch (error) {
+      console.error('Forgot password error:', error);
       toast.error('Bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);

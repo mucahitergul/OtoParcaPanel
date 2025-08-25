@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     // Forward request to backend
-    const backendUrl = 'http://localhost:3001/api/products/statistics';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL ? 
+      `${process.env.NEXT_PUBLIC_API_URL}/products/statistics` : 
+      'http://localhost:3001/api/products/statistics';
     const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {

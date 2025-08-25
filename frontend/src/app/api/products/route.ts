@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     if (needsSync) queryParams.append('needsSync', needsSync);
 
     // Forward request to backend
-    const backendUrl = `http://localhost:3001/api/products?${queryParams.toString()}`;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const backendUrl = `${baseUrl}/products?${queryParams.toString()}`;
     const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {
