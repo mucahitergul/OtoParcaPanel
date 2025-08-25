@@ -74,6 +74,83 @@ JWT_SECRET=""
 NEXTAUTH_SECRET=""
 
 # =============================================================================
+# USAGE FUNCTION
+# =============================================================================
+
+# Kullanım bilgilerini göster
+show_usage() {
+    echo ""
+    echo -e "${PURPLE}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${PURPLE}║                    OTO PARÇA PANEL                           ║${NC}"
+    echo -e "${PURPLE}║              One-Click Installation Script                   ║${NC}"
+    echo -e "${PURPLE}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${WHITE}🚀 OtoParcaPanel Kurulum Aracı${NC}"
+    echo ""
+    echo -e "${CYAN}Kullanım:${NC}"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh${NC}                    # Self-signed SSL ile kurulum"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh example.com${NC}        # Ana domain ile Let's Encrypt"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh www.example.com${NC}    # WWW subdomain ile Let's Encrypt"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh api.example.com${NC}    # API subdomain ile Let's Encrypt"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh app.example.com${NC}    # APP subdomain ile Let's Encrypt"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh panel.example.com${NC}  # Panel subdomain ile Let's Encrypt"
+    echo ""
+    echo -e "${CYAN}SSL Sertifika Seçenekleri:${NC}"
+    echo -e "  ${GREEN}✅ Let's Encrypt${NC}  - Ücretsiz, otomatik yenilenen, güvenilir SSL"
+    echo -e "  ${YELLOW}⚠️  Self-signed${NC}   - Geliştirme ortamı için, tarayıcı uyarısı verir"
+    echo ""
+    echo -e "${CYAN}Örnekler:${NC}"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh otoparca.com${NC}       # Ana domain kurulumu"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh panel.otoparca.com${NC} # Panel subdomain kurulumu"
+    echo -e "  ${WHITE}sudo ./one-click-install.sh api.otoparca.com${NC}   # API subdomain kurulumu"
+    echo ""
+    echo -e "${CYAN}Gereksinimler:${NC}"
+    echo -e "  ${WHITE}• Ubuntu 20.04+ veya Debian 11+${NC}"
+    echo -e "  ${WHITE}• En az 4GB RAM${NC}"
+    echo -e "  ${WHITE}• En az 20GB disk alanı${NC}"
+    echo -e "  ${WHITE}• Root erişimi (sudo)${NC}"
+    echo -e "  ${WHITE}• Domain DNS kaydı (Let's Encrypt için)${NC}"
+    echo ""
+    echo -e "${CYAN}Not:${NC}"
+    echo -e "  ${WHITE}• Let's Encrypt için domain'in DNS kaydı sunucuya yönlendirilmiş olmalıdır${NC}"
+    echo -e "  ${WHITE}• Subdomain kullanımında sadece belirtilen subdomain için sertifika alınır${NC}"
+    echo -e "  ${WHITE}• Ana domain kullanımında hem ana domain hem www için sertifika alınır${NC}"
+    echo ""
+}
+
+# Help parametresi kontrolü
+if [[ "$1" == "help" || "$1" == "--help" || "$1" == "-h" ]]; then
+    show_usage
+    exit 0
+fi
+
+# =============================================================================
+# DOMAIN PARAMETER HANDLING
+# =============================================================================
+
+# Domain parametresi kontrolü
+if [[ -n "$1" ]]; then
+    DOMAIN_NAME="$1"
+    info "🌐 Domain parametresi alındı: $DOMAIN_NAME"
+    info "🔒 Let's Encrypt SSL kurulumu yapılacak"
+    
+    # Domain format kontrolü
+    if [[ ! "$DOMAIN_NAME" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$ ]]; then
+        error "❌ Geçersiz domain formatı: $DOMAIN_NAME"
+        error "💡 Örnekler: example.com, sub.example.com"
+        exit 1
+    fi
+    
+    # SSL email otomatik ayarla
+    SSL_EMAIL="admin@$DOMAIN_NAME"
+    info "📧 SSL Email: $SSL_EMAIL"
+else
+    info "⚠️  Domain parametresi belirtilmedi"
+    info "💡 Let's Encrypt kullanımı için: sudo ./one-click-install.sh domain.com"
+    info "🔒 Self-signed SSL sertifikası kullanılacak"
+fi
+
+# =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
 
@@ -199,36 +276,44 @@ get_user_input() {
     echo -e "${PURPLE}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     
-    # Domain adı al
-    while true; do
-        read -p "$(echo -e "${CYAN}Domain adınızı girin (örn: otoparca.example.com): ${NC}")" DOMAIN_NAME
+    # Domain parametresi varsa kullanıcıdan tekrar sorma
+    if [[ -z "$DOMAIN_NAME" ]]; then
+        # Domain adı al
+        while true; do
+            read -p "$(echo -e "${CYAN}Domain adınızı girin (örn: otoparca.example.com): ${NC}")" DOMAIN_NAME
+            
+            if [[ -z "$DOMAIN_NAME" ]]; then
+                warn "Domain adı boş olamaz!"
+                continue
+            fi
+            
+            # Domain format kontrolü
+            if [[ ! "$DOMAIN_NAME" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$ ]]; then
+                warn "Geçersiz domain formatı! Örnekler: example.com, sub.example.com"
+                continue
+            fi
+            
+            break
+        done
         
-        if [[ -z "$DOMAIN_NAME" ]]; then
-            warn "Domain adı boş olamaz!"
-            continue
-        fi
-        
-        # Domain format kontrolü
-        if [[ ! "$DOMAIN_NAME" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$ ]]; then
-            warn "Geçersiz domain formatı! Örnekler: example.com, sub.example.com"
-            continue
-        fi
-        
-        break
-    done
-    
-    # Email adı al
-    read -p "$(echo -e "${CYAN}SSL sertifikası için email adresinizi girin (varsayılan: admin@$DOMAIN_NAME): ${NC}")" SSL_EMAIL
-    SSL_EMAIL=${SSL_EMAIL:-"admin@$DOMAIN_NAME"}
+        # Email adı al
+        read -p "$(echo -e "${CYAN}SSL sertifikası için email adresinizi girin (varsayılan: admin@$DOMAIN_NAME): ${NC}")" SSL_EMAIL
+        SSL_EMAIL=${SSL_EMAIL:-"admin@$DOMAIN_NAME"}
+    fi
     
     # Onay al
     echo ""
-    info "Girilen bilgiler:"
+    info "Kurulum bilgileri:"
     echo -e "${WHITE}Domain: $DOMAIN_NAME${NC}"
     echo -e "${WHITE}SSL Email: $SSL_EMAIL${NC}"
+    if [[ -n "$DOMAIN_NAME" ]]; then
+        echo -e "${WHITE}SSL Türü: Let's Encrypt (Ücretsiz)${NC}"
+    else
+        echo -e "${WHITE}SSL Türü: Self-Signed (Geliştirme)${NC}"
+    fi
     echo ""
     
-    read -p "$(echo -e "${YELLOW}Bu bilgiler doğru mu? (y/n): ${NC}")" -n 1 -r
+    read -p "$(echo -e "${YELLOW}Bu bilgiler ile kuruluma devam edilsin mi? (y/n): ${NC}")" -n 1 -r
     echo ""
     
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -236,7 +321,7 @@ get_user_input() {
         exit 1
     fi
     
-    log "Kullanıcı girişleri alındı"
+    log "Kullanıcı girişleri onaylandı"
 }
 
 # =============================================================================
@@ -1148,27 +1233,450 @@ EOF
     run_command "ln -sf /etc/nginx/sites-available/oto-parca-panel-http /etc/nginx/sites-enabled/oto-parca-panel" "HTTP-only konfigürasyon etkinleştirildi"
 }
 
+# Self-signed SSL sertifikası kurulumu
+setup_self_signed_ssl() {
+    update_progress "Self-signed SSL sertifikası kuruluyor..."
+    
+    # SSL dizini oluştur
+    mkdir -p /etc/nginx/ssl
+    
+    # Self-signed sertifika oluştur
+    if openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/nginx/ssl/nginx-selfsigned.key \
+        -out /etc/nginx/ssl/nginx-selfsigned.crt \
+        -subj "/C=TR/ST=Istanbul/L=Istanbul/O=OtoParcaPanel/CN=$DOMAIN_NAME" >> "$LOG_FILE" 2>&1; then
+        
+        log "Self-signed SSL sertifikası oluşturuldu"
+        
+        # İzinleri ayarla
+        chmod 600 /etc/nginx/ssl/nginx-selfsigned.key
+        chmod 644 /etc/nginx/ssl/nginx-selfsigned.crt
+        
+        # HTTPS Nginx konfigürasyonu oluştur
+        create_nginx_https_config
+        
+        # Nginx'i test et ve yeniden başlat
+        if nginx -t >> "$LOG_FILE" 2>&1; then
+            run_command "systemctl reload nginx" "Nginx HTTPS modunda yeniden yüklendi"
+            log "✅ HTTPS başarıyla etkinleştirildi"
+        else
+            error "Nginx konfigürasyon hatası, HTTP modda devam ediliyor"
+            create_nginx_http_config
+            run_command "systemctl reload nginx" "Nginx HTTP modunda yeniden yüklendi"
+        fi
+    else
+        error "Self-signed SSL sertifikası oluşturulamadı"
+        warn "HTTP modda devam ediliyor"
+    fi
+}
+
+# HTTPS Nginx konfigürasyonu oluştur
+create_nginx_https_config() {
+    info "HTTPS Nginx konfigürasyonu oluşturuluyor..."
+    
+    cat > "/etc/nginx/sites-available/oto-parca-panel" << EOF
+# Oto Parça Panel - HTTPS Configuration
+
+# Upstream definitions
+upstream backend {
+    server localhost:3001;
+    keepalive 32;
+}
+
+upstream frontend {
+    server localhost:3000;
+    keepalive 32;
+}
+
+# HTTPS Server
+server {
+    listen 443 ssl http2;
+    server_name $DOMAIN_NAME www.$DOMAIN_NAME;
+    
+    # SSL Configuration
+    ssl_certificate /etc/nginx/ssl/nginx-selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/nginx-selfsigned.key;
+    
+    # SSL Settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # API routes (Backend - NestJS)
+    location /api/ {
+        proxy_pass http://backend/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Port \$server_port;
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        
+        # CORS headers
+        add_header Access-Control-Allow-Origin "https://$DOMAIN_NAME" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization" always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        
+        # Handle preflight requests
+        if (\$request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin "https://$DOMAIN_NAME";
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
+            add_header Access-Control-Allow-Credentials "true";
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type "text/plain; charset=utf-8";
+            add_header Content-Length 0;
+            return 204;
+        }
+    }
+
+    # Frontend routes (Next.js)
+    location / {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Static files caching
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|pdf|txt|tar|gz)\$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Vary Accept-Encoding;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+}
+
+# HTTP to HTTPS redirect
+server {
+    listen 80;
+    server_name $DOMAIN_NAME www.$DOMAIN_NAME;
+    return 301 https://\$server_name\$request_uri;
+}
+EOF
+
+    # Site'ı etkinleştir
+    run_command "ln -sf /etc/nginx/sites-available/oto-parca-panel /etc/nginx/sites-enabled/" "HTTPS Nginx site etkinleştirildi"
+    run_command "rm -f /etc/nginx/sites-enabled/default" "Varsayılan site kaldırıldı"
+}
+
+# Certbot kurulumu
+install_certbot() {
+    update_progress "Certbot kuruluyor..."
+    
+    # Snapd kurulumu
+    run_command "apt update" "Paket listesi güncellendi"
+    run_command "apt install -y snapd" "Snapd yüklendi"
+    run_command "snap install core; snap refresh core" "Snap core yüklendi"
+    
+    # Certbot kurulumu
+    run_command "snap install --classic certbot" "Certbot yüklendi"
+    run_command "ln -sf /snap/bin/certbot /usr/bin/certbot" "Certbot bağlantısı oluşturuldu"
+    
+    log "✅ Certbot başarıyla kuruldu"
+}
+
+# Domain validation fonksiyonu
+validate_domain() {
+    local domain="$1"
+    
+    # Boş domain kontrolü
+    if [[ -z "$domain" ]]; then
+        return 1
+    fi
+    
+    # Domain format kontrolü (basit regex)
+    if [[ ! "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
+        error "❌ Geçersiz domain formatı: $domain"
+        return 1
+    fi
+    
+    # DNS çözümleme kontrolü
+    if ! nslookup "$domain" >/dev/null 2>&1; then
+        warn "⚠️  DNS kaydı bulunamadı: $domain"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Let's Encrypt SSL sertifika kurulumu (Subdomain desteği ile)
+setup_letsencrypt_ssl() {
+    update_progress "Let's Encrypt SSL sertifikası kuruluyor..."
+    
+    # Domain kontrolü
+    if [[ -z "$DOMAIN_NAME" ]]; then
+        warn "⚠️  Domain adı belirtilmedi, self-signed sertifika kullanılacak"
+        setup_self_signed_ssl
+        return
+    fi
+    
+    # Domain validation
+    if ! validate_domain "$DOMAIN_NAME"; then
+        warn "⚠️  Domain doğrulaması başarısız, self-signed sertifika kullanılacak"
+        setup_self_signed_ssl
+        return
+    fi
+    
+    # Subdomain formatını kontrol et
+    local main_domain="$DOMAIN_NAME"
+    local domains=""
+    
+    # Eğer subdomain ise (örn: api.example.com, panel.example.com)
+    if [[ "$DOMAIN_NAME" == *.*.* ]]; then
+        # Subdomain durumu - sadece belirtilen subdomain için sertifika al
+        domains="-d $DOMAIN_NAME"
+        info "🌐 Subdomain tespit edildi: $DOMAIN_NAME"
+    else
+        # Ana domain durumu - hem ana domain hem www için sertifika al
+        domains="-d $DOMAIN_NAME -d www.$DOMAIN_NAME"
+        info "🌐 Ana domain tespit edildi: $DOMAIN_NAME (www dahil)"
+    fi
+    
+    # Port 80 kontrolü (Let's Encrypt için gerekli)
+    local restart_nginx=false
+    if netstat -tlnp | grep -q ":80 "; then
+        info "📡 Port 80 kullanımda, Nginx geçici olarak durdurulacak"
+        run_command "systemctl stop nginx" "Nginx durduruldu"
+        restart_nginx=true
+    fi
+    
+    # Let's Encrypt sertifika al
+    info "📜 Sertifika alınıyor: $domains"
+    if certbot certonly --standalone \
+        --non-interactive \
+        --agree-tos \
+        --email "$SSL_EMAIL" \
+        $domains >> "$LOG_FILE" 2>&1; then
+        
+        log "✅ Let's Encrypt sertifikası başarıyla alındı"
+        create_nginx_letsencrypt_config
+        
+        # SSL otomatik yenileme kurulumu
+        setup_ssl_auto_renewal
+        
+    else
+        error "❌ Let's Encrypt sertifikası alınamadı, self-signed kullanılacak"
+        setup_self_signed_ssl
+    fi
+    
+    # Nginx'i yeniden başlat
+    if [[ "$restart_nginx" == "true" ]]; then
+        run_command "systemctl start nginx" "Nginx başlatıldı"
+    fi
+}
+
+# Let's Encrypt Nginx yapılandırması (Subdomain desteği ile)
+create_nginx_letsencrypt_config() {
+    info "🌐 Let's Encrypt Nginx yapılandırması oluşturuluyor..."
+    
+    # Subdomain kontrolü
+    local server_name=""
+    local cert_path="/etc/letsencrypt/live/$DOMAIN_NAME"
+    
+    if [[ "$DOMAIN_NAME" == *.*.* ]]; then
+        # Subdomain yapılandırması
+        server_name="$DOMAIN_NAME"
+        info "🔧 Subdomain için Nginx yapılandırması: $DOMAIN_NAME"
+    else
+        # Ana domain yapılandırması
+        server_name="$DOMAIN_NAME www.$DOMAIN_NAME"
+        info "🔧 Ana domain için Nginx yapılandırması: $DOMAIN_NAME (www dahil)"
+    fi
+    
+    cat > "/etc/nginx/sites-available/oto-parca-panel" << EOF
+# Oto Parça Panel - Let's Encrypt HTTPS Configuration
+# Domain: $DOMAIN_NAME
+# Type: $(if [[ "$DOMAIN_NAME" == *.*.* ]]; then echo "Subdomain"; else echo "Main Domain"; fi)
+
+# Upstream definitions
+upstream backend {
+    server localhost:3001;
+    keepalive 32;
+}
+
+upstream frontend {
+    server localhost:3000;
+    keepalive 32;
+}
+
+# HTTP to HTTPS redirect
+server {
+    listen 80;
+    server_name $server_name;
+    return 301 https://\$server_name\$request_uri;
+}
+
+# HTTPS Server
+server {
+    listen 443 ssl http2;
+    server_name $server_name;
+    
+    # Let's Encrypt SSL certificates
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN_NAME/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN_NAME/privkey.pem;
+    
+    # Modern SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # API routes (Backend - NestJS)
+    location /api/ {
+        proxy_pass http://backend/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Port \$server_port;
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        
+        # CORS headers
+        add_header Access-Control-Allow-Origin "https://$DOMAIN_NAME" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization" always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        
+        # Handle preflight requests
+        if (\$request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin "https://$DOMAIN_NAME";
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
+            add_header Access-Control-Allow-Credentials "true";
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type "text/plain; charset=utf-8";
+            add_header Content-Length 0;
+            return 204;
+        }
+    }
+
+    # Frontend routes (Next.js)
+    location / {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Static files caching
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|pdf|txt|tar|gz)\$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Vary Accept-Encoding;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+}
+EOF
+
+    # Site'ı etkinleştir
+    run_command "ln -sf /etc/nginx/sites-available/oto-parca-panel /etc/nginx/sites-enabled/" "Let's Encrypt Nginx site etkinleştirildi"
+    run_command "rm -f /etc/nginx/sites-enabled/default" "Varsayılan site kaldırıldı"
+}
+
+# SSL otomatik yenileme kurulumu
+setup_ssl_auto_renewal() {
+    info "🔄 SSL otomatik yenileme kuruluyor..."
+    
+    # Crontab entry ekle
+    (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet --nginx") | crontab -
+    
+    # Test yenileme
+    if certbot renew --dry-run >> "$LOG_FILE" 2>&1; then
+        log "✅ SSL otomatik yenileme kuruldu"
+    else
+        warn "⚠️  SSL otomatik yenileme test edilemedi"
+    fi
+}
+
 install_ssl() {
     update_progress "SSL sertifikası kuruluyor..."
     
     # Certbot kurulumu
-    run_command "apt install -y certbot python3-certbot-nginx" "Certbot yüklendi"
+    install_certbot
     
-    # SSL sertifikası oluştur
-    if certbot --nginx -d "$DOMAIN_NAME" -d "www.$DOMAIN_NAME" --email "$SSL_EMAIL" --agree-tos --non-interactive --redirect >> "$LOG_FILE" 2>&1; then
-        log "SSL sertifikası başarıyla oluşturuldu"
-        
-        # HTTPS konfigürasyonuna geç
-        create_nginx_config
-        run_command "nginx -t" "Nginx konfigürasyon testi"
-        run_command "systemctl reload nginx" "Nginx yeniden yüklendi"
-    else
-        warn "SSL sertifikası oluşturulamadı. HTTP modda devam ediliyor."
-        info "SSL sertifikasını daha sonra manuel olarak oluşturabilirsiniz: certbot --nginx -d $DOMAIN_NAME"
-    fi
+    # Let's Encrypt SSL kurulumu dene
+    setup_letsencrypt_ssl
     
-    # Otomatik yenileme için crontab
-    run_command "(crontab -l 2>/dev/null; echo '0 12 * * * /usr/bin/certbot renew --quiet') | crontab -" "SSL otomatik yenileme ayarlandı"
+    info "SSL kurulumu tamamlandı"
 }
 
 build_and_start_services() {

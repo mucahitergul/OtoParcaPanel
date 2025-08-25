@@ -146,6 +146,77 @@ chmod +x one-click-install.sh
 sudo ./one-click-install.sh
 ```
 
+#### 🔒 SSL Sertifika Kurulum Seçenekleri
+
+**1. Let's Encrypt SSL (Production - Önerilen):**
+
+*Ana Domain Kurulumu:*
+```bash
+# Ana domain ile Let's Encrypt kurulumu (www dahil)
+sudo ./one-click-install.sh yourdomain.com
+
+# Örnek:
+sudo ./one-click-install.sh otoparca.com
+# Bu kurulum hem otoparca.com hem www.otoparca.com için sertifika alır
+```
+
+*Subdomain Kurulumu:*
+```bash
+# Subdomain ile Let's Encrypt kurulumu
+sudo ./one-click-install.sh subdomain.yourdomain.com
+
+# Örnekler:
+sudo ./one-click-install.sh panel.otoparca.com    # Panel subdomain
+sudo ./one-click-install.sh api.otoparca.com      # API subdomain
+sudo ./one-click-install.sh app.otoparca.com      # Uygulama subdomain
+sudo ./one-click-install.sh admin.otoparca.com    # Admin subdomain
+sudo ./one-click-install.sh www.otoparca.com      # WWW subdomain
+```
+
+**2. Self-Signed SSL (Development/Test):**
+```bash
+# Domain parametresi olmadan self-signed kurulumu
+sudo ./one-click-install.sh
+
+# Veya help için:
+sudo ./one-click-install.sh --help
+```
+
+**🆕 Subdomain Desteği Özellikleri:**
+- ✅ **Akıllı Domain Tespiti**: Ana domain ve subdomain otomatik olarak tespit edilir
+- ✅ **Subdomain SSL**: Sadece belirtilen subdomain için sertifika alınır
+- ✅ **Ana Domain SSL**: Ana domain için hem domain.com hem www.domain.com sertifikası
+- ✅ **DNS Doğrulama**: Her domain/subdomain için ayrı DNS kontrolü
+- ✅ **Nginx Optimizasyonu**: Domain tipine göre optimize edilmiş Nginx yapılandırması
+- ✅ **CORS Ayarları**: Subdomain için özel CORS yapılandırması
+
+**Let's Encrypt Kurulum Özellikleri:**
+- ✅ **Ücretsiz SSL Sertifikası**: Let's Encrypt ile 90 günlük ücretsiz sertifika
+- ✅ **Otomatik Domain Doğrulama**: DNS kayıtları otomatik kontrol edilir
+- ✅ **Subdomain Desteği**: Tüm subdomain türleri için tam destek
+- ✅ **Otomatik Yenileme**: Crontab ile günlük yenileme kontrolü
+- ✅ **Fallback Desteği**: Let's Encrypt başarısızsa self-signed kullanılır
+- ✅ **Modern TLS**: TLS 1.2/1.3 desteği ile güvenli bağlantı
+- ✅ **Port Yönetimi**: 80 portu kullanımda ise geçici durdurma
+
+**SSL Kurulum Gereksinimleri:**
+- Domain/subdomain'in DNS kaydının sunucu IP'sine yönlendirilmiş olması
+- 80 ve 443 portlarının açık olması
+- Geçerli email adresi (sertifika bildirimleri için)
+- Subdomain için A kaydının doğru yapılandırılmış olması
+
+**DNS Ayarları Örnekleri:**
+```
+# Ana domain için:
+A    otoparca.com        → 192.168.1.100
+A    www.otoparca.com    → 192.168.1.100
+
+# Subdomain için:
+A    panel.otoparca.com  → 192.168.1.100
+A    api.otoparca.com    → 192.168.1.100
+A    app.otoparca.com    → 192.168.1.100
+```
+
 **🆕 Akıllı Proje Tespit Sistemi:**
 
 Kurulum scripti artık mevcut proje dosyalarını akıllıca tespit eder:
@@ -172,7 +243,7 @@ Kurulum scripti artık mevcut proje dosyalarını akıllıca tespit eder:
 - ✅ **Otomatik Sistem Kontrolü**: RAM, disk, internet bağlantısı
 - ✅ **Akıllı Port Yönetimi**: Çakışan portları otomatik çözer
 - ✅ **Güvenli Şifre Üretimi**: Tüm şifreler otomatik oluşturulur
-- ✅ **SSL Sertifika Kurulumu**: Let's Encrypt ile otomatik HTTPS
+- ✅ **SSL Sertifika Kurulumu**: Self-signed ve Let's Encrypt desteği ile otomatik HTTPS
 - ✅ **CORS Optimizasyonu**: Production domain için optimize edilmiş
 - ✅ **Hata Yönetimi**: Her adımda hata kontrolü ve recovery
 - ✅ **Progress Tracking**: Renkli output ve ilerleme çubuğu
@@ -180,6 +251,10 @@ Kurulum scripti artık mevcut proje dosyalarını akıllıca tespit eder:
 - ✅ **Rollback Desteği**: Başarısız kurumda otomatik geri alma
 - 🆕 **Gelişmiş PostgreSQL Kurulumu**: Otomatik authentication ve retry mekanizması
 - 🆕 **PostgreSQL Troubleshooting**: Otomatik sorun tespit ve düzeltme aracı
+- 🆕 **Self-Signed SSL Kurulumu**: Geliştirme ve test ortamları için otomatik SSL
+- 🆕 **HTTPS Redirect**: HTTP trafiğini otomatik olarak HTTPS'e yönlendirme
+- 🆕 **Let's Encrypt SSL**: Production ortamları için ücretsiz SSL sertifikası
+- 🆕 **SSL Otomatik Yenileme**: Certbot ile otomatik sertifika yenileme
 
 #### 🆕 Gelişmiş Kurulum Özellikleri
 
@@ -513,7 +588,48 @@ nginx -t
 systemctl reload nginx
 ```
 
-### 7. SSL Sertifikası (Let's Encrypt)
+### 7. SSL Sertifikası Kurulumu
+
+#### 7.1 🆕 Self-Signed SSL (Geliştirme/Test Ortamı)
+
+**Otomatik Kurulum (Önerilen):**
+```bash
+# Self-signed SSL kurulum scripti
+chmod +x setup-ssl-self-signed.sh
+sudo ./setup-ssl-self-signed.sh [domain_name]
+
+# Örnek:
+sudo ./setup-ssl-self-signed.sh localhost
+sudo ./setup-ssl-self-signed.sh otoparca.isletmemdijitalde.com
+```
+
+**Manuel Kurulum:**
+```bash
+# SSL dizini oluştur
+sudo mkdir -p /etc/nginx/ssl
+
+# Self-signed sertifika oluştur
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/nginx-selfsigned.key \
+    -out /etc/nginx/ssl/nginx-selfsigned.crt \
+    -subj "/C=TR/ST=Istanbul/L=Istanbul/O=OtoParcaPanel/CN=localhost"
+
+# İzinleri ayarla
+sudo chmod 600 /etc/nginx/ssl/nginx-selfsigned.key
+sudo chmod 644 /etc/nginx/ssl/nginx-selfsigned.crt
+
+# Nginx'i yeniden başlat
+sudo systemctl reload nginx
+```
+
+**Self-Signed SSL Özellikleri:**
+- ✅ **Hızlı Kurulum**: 30 saniyede SSL aktif
+- ✅ **Geliştirme Dostu**: Local ve test ortamları için ideal
+- ✅ **Otomatik HTTPS Redirect**: HTTP trafiği otomatik yönlendirme
+- ✅ **Modern SSL Ayarları**: TLS 1.2/1.3 desteği
+- ⚠️ **Tarayıcı Uyarısı**: Self-signed sertifika uyarısı alabilirsiniz
+
+#### 7.2 Let's Encrypt SSL (Üretim Ortamı)
 
 ```bash
 # Certbot kurulumu
@@ -526,6 +642,25 @@ certbot --nginx -d otoparca.isletmemdijitalde.com -d www.otoparca.isletmemdijita
 crontab -e
 # Aşağıdaki satırı ekleyin:
 0 12 * * * /usr/bin/certbot renew --quiet
+```
+
+#### 7.3 SSL Kurulum Doğrulama
+
+```bash
+# SSL sertifikası kontrolü
+openssl x509 -in /etc/nginx/ssl/nginx-selfsigned.crt -text -noout
+
+# HTTPS bağlantı testi
+curl -I https://localhost
+curl -I https://otoparca.isletmemdijitalde.com
+
+# Port 443 dinleme kontrolü
+netstat -tlnp | grep :443
+ss -tlnp | grep :443
+
+# Nginx SSL konfigürasyon testi
+nginx -t
+sudo systemctl status nginx
 ```
 
 ### 8. PM2 ile Servisleri Başlatma
