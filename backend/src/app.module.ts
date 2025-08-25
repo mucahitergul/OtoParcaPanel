@@ -4,6 +4,12 @@ import {
   MiddlewareConsumer,
   RequestMethod,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
+
+// Ensure crypto is available globally
+if (typeof global !== 'undefined' && !(global as any).crypto) {
+  (global as any).crypto = crypto;
+}
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
@@ -49,7 +55,7 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
           StockHistory,
           Settings,
         ],
-        synchronize: false, // Disabled for stability
+        synchronize: true, // Enable for development
         dropSchema: false,
       }),
       inject: [ConfigService],

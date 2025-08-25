@@ -3,6 +3,10 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import * as crypto from 'crypto';
+
+// Make crypto available globally for TypeORM
+(global as any).crypto = crypto;
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');

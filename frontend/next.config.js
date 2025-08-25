@@ -1,14 +1,16 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
   /* config options here */
   output: 'standalone',
   serverExternalPackages: [],
   // Modül çözümleme için webpack yapılandırması
   webpack: (config, { isServer }) => {
-    // Modül çözümleme için alias'ları ayarla
+    // Linux uyumlu path çözümlemesi için
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': require('path').resolve(__dirname, './src'),
+      '@': path.posix.resolve(__dirname.replace(/\\/g, '/'), './src'),
     };
     return config;
   },
