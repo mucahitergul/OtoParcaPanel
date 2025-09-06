@@ -177,9 +177,6 @@ export const productApi = {
   markForSync: (productIds: number[]) => 
     api.post('/products/mark-for-sync', { productIds }),
 
-  getProductsNeedingSync: (limit?: number) => 
-    api.get('/products/needs-sync', { params: { limit } }),
-
   deleteProduct: (id: number) => api.delete(`/products/${id}`),
 
   deleteAllProducts: () => api.post('/products/delete-all'),

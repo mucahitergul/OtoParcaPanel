@@ -568,18 +568,7 @@ export default function ProductDetailPage() {
                           <p className="text-lg font-semibold text-gray-900 dark:text-white">
                             {formatPrice(supplier.price)}
                           </p>
-                          {supplier.old_price && supplier.old_price !== supplier.price && (
-                            <div className="flex items-center gap-1 mt-1">
-                              {supplier.price > supplier.old_price ? (
-                                <TrendingUp className="h-3 w-3 text-red-500" />
-                              ) : (
-                                <TrendingDown className="h-3 w-3 text-green-500" />
-                              )}
-                              <span className="text-xs text-gray-500">
-                                {formatPrice(supplier.old_price)}
-                              </span>
-                            </div>
-                          )}
+                          {/* Price trend removed - old_price not available in SupplierPrice type */}
                         </div>
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Stok</p>

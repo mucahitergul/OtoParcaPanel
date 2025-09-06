@@ -50,6 +50,9 @@ interface Product {
   dinamik_price?: number;
   dinamik_stock?: number;
   dinamik_last_updated?: string;
+  dogus_price?: number;
+  dogus_stock?: number;
+  dogus_last_updated?: string;
   woo_last_update?: string;
   supplier_tags?: string[];
 }
@@ -135,7 +138,7 @@ export default function DinamikSupplierPage() {
 
   // Filtrelenmiş ürün listesi - Backend'den zaten sadece Dinamik ürünleri geliyor
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter(product => {
+    const filtered = products.filter(product => {
       // Arama filtresi
       const matchesSearch = product.urun_adi.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           product.stok_kodu.toLowerCase().includes(searchTerm.toLowerCase());
@@ -277,7 +280,7 @@ export default function DinamikSupplierPage() {
       const allProducts = allProductsData.success ? allProductsData.data : [];
       
       // Sadece Dinamik etiketli ürünleri filtrele
-      const dinamikProducts = allProducts.filter(product => 
+      const dinamikProducts = allProducts.filter((product: Product) => 
         product.supplier_tags?.includes('Dinamik')
       );
       
@@ -365,7 +368,7 @@ export default function DinamikSupplierPage() {
           }
         } catch (error) {
           // Check if it's a timeout error (CAPTCHA related)
-          if (error.message?.includes('timeout') || error.message?.includes('CAPTCHA')) {
+          if ((error as Error).message?.includes('timeout') || (error as Error).message?.includes('CAPTCHA')) {
             setIsCaptchaWaiting(true);
             shouldContinueUpdating.current = false;
             toast.error('⚠️ CAPTCHA Timeout!', {
@@ -436,7 +439,7 @@ export default function DinamikSupplierPage() {
       const allProducts = allProductsData.success ? allProductsData.data : [];
       
       // Dinamik etiketi olmayan ürünleri filtrele (bunlar güncellenmeli)
-      const productsToUpdate = allProducts.filter(product => 
+      const productsToUpdate = allProducts.filter((product: Product) => 
         !product.supplier_tags?.includes('Dinamik')
       );
       
@@ -524,7 +527,7 @@ export default function DinamikSupplierPage() {
           }
         } catch (error) {
           // Check if it's a timeout error (CAPTCHA related)
-          if (error.message?.includes('timeout') || error.message?.includes('CAPTCHA')) {
+          if ((error as Error).message?.includes('timeout') || (error as Error).message?.includes('CAPTCHA')) {
             setIsCaptchaWaiting(true);
             shouldContinueUpdating.current = false;
             toast.error('⚠️ CAPTCHA Timeout!', {

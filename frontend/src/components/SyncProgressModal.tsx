@@ -56,7 +56,7 @@ export default function SyncProgressModal({ isOpen, onClose, syncId }: SyncProgr
         }
 
         // Use the WooCommerce sync progress endpoint
-        let endpoint = `/api/woocommerce/sync-progress/${syncId}`;
+        const endpoint = `/api/woocommerce/sync-progress/${syncId}`;
         
         console.log('Fetching progress from endpoint:', endpoint);
         const response = await fetch(endpoint, {

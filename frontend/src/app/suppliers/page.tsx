@@ -30,6 +30,7 @@ interface Product {
   stok_kodu: string;
   urun_adi: string;
   fiyat: number | string;
+  regular_price: number | string;
   stok_miktari: number;
   dinamik_price?: number | string;
   dinamik_stock?: number;
@@ -175,8 +176,8 @@ export default function SuppliersPage() {
   };
 
   const getSupplierStats = () => {
-    const dinamikCount = allProducts.filter(p => p.dinamik_price && p.dinamik_price > 0).length;
-    const basbugCount = allProducts.filter(p => p.basbug_price && p.basbug_price > 0).length;
+    const dinamikCount = allProducts.filter(p => p.dinamik_price && Number(p.dinamik_price) > 0).length;
+    const basbugCount = allProducts.filter(p => p.basbug_price && Number(p.basbug_price) > 0).length;
     // Doğuş için sadece etiket kontrolü yap - fiyat ve stok durumu önemli değil
     const dogusCount = allProducts.filter(p => {
       // Sadece supplier_tags içinde 'Doğuş' etiketi var mı kontrol et

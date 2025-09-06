@@ -50,6 +50,12 @@ interface Product {
   basbug_price?: number;
   basbug_stock?: number;
   basbug_last_updated?: string;
+  dinamik_price?: number;
+  dinamik_stock?: number;
+  dinamik_last_updated?: string;
+  dogus_price?: number;
+  dogus_stock?: number;
+  dogus_last_updated?: string;
   woo_last_update?: string;
   supplier_tags?: string[];
 }
@@ -122,7 +128,7 @@ export default function BasbugSupplierPage() {
 
   // Filtrelenmiş ürün listesi - Backend'den zaten sadece Başbuğ ürünleri geliyor
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter(product => {
+    const filtered = products.filter(product => {
       // Arama filtresi
       const matchesSearch = product.urun_adi.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           product.stok_kodu.toLowerCase().includes(searchTerm.toLowerCase());
@@ -314,7 +320,7 @@ export default function BasbugSupplierPage() {
       const allProducts = allProductsData.success ? allProductsData.data : [];
       
       // Sadece Başbuğ etiketli ürünleri filtrele
-      const basbugProducts = allProducts.filter(product => 
+      const basbugProducts = allProducts.filter((product: Product) => 
         product.supplier_tags && product.supplier_tags.includes('Başbuğ')
       );
       
@@ -415,7 +421,7 @@ export default function BasbugSupplierPage() {
       const allProducts = allProductsData.success ? allProductsData.data : [];
       
       // Başbuğ etiketi olmayan ürünleri filtrele (bunlar güncellenmeli)
-      const productsToUpdate = allProducts.filter(product => 
+      const productsToUpdate = allProducts.filter((product: Product) => 
         !product.supplier_tags?.includes('Başbuğ')
       );
       

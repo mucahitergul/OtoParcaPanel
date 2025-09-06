@@ -188,7 +188,7 @@ export default function ProductsPage() {
           // Sync individual product
           const result = await productApi.syncSingleProduct(product.id);
           
-          if (result.data?.success || result.success) {
+          if (result.data?.success) {
             successCount++;
           } else {
             failCount++;
@@ -1057,7 +1057,7 @@ export default function ProductsPage() {
                       
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-bold text-gray-900 dark:text-white">
-                          {formatPrice(product.fiyat)}
+                          {formatPrice(product.regular_price)}
                         </span>
                         <span className="text-sm text-gray-500 dark:text-gray-400">
                           Stok: {product.stok_miktari}

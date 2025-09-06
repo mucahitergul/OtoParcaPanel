@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = params.id;
+    const { id } = await params;
+    const productId = id;
     
     // Backend API'sine istek gönder
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
