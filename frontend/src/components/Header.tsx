@@ -5,9 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useProductSearch } from '../hooks/useProductSearch';
 import {
-  Search,
   Bell,
   Settings,
   User,
@@ -15,7 +13,6 @@ import {
   Moon,
   Sun,
   ChevronDown,
-  Loader2,
   Home,
   Package,
   DollarSign,
@@ -24,15 +21,11 @@ import {
 } from 'lucide-react';
 
 export default function Header() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
-  const { products, loading, error } = useProductSearch(searchQuery);
 
   // Navigation items
   const navigation = [
@@ -76,37 +69,7 @@ export default function Header() {
     }
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    setShowSearchResults(value.length > 0);
-  };
 
-  const handleProductClick = (productId: number) => {
-    setSearchQuery('');
-    setShowSearchResults(false);
-    router.push(`/products/${productId}`);
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      setShowSearchResults(false);
-      router.push(`/products?search=${encodeURIComponent(searchQuery)}`);
-    }
-  };
-
-  // Close search results when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowSearchResults(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   return (
     <header className="bg-white dark:bg-gray-900 header-border shadow-sm">
@@ -150,95 +113,7 @@ export default function Header() {
             })}
           </nav>
 
-          {/* Search */}
-          <div className="flex-1 max-w-md mx-8" ref={searchRef}>
-            <form onSubmit={handleSearchSubmit} className="relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                {loading ? (
-                  <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
-                ) : (
-                  <Search className="h-5 w-5 text-gray-400" />
-                )}
-              </div>
-              <input
-                type="text"
-                placeholder="Ürün ara..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                onFocus={() => searchQuery.length > 0 && setShowSearchResults(true)}
-                className="block w-full pl-12 pr-4 py-3 border-0 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-gray-700 text-sm font-medium transition-all duration-200"
-              />
-              
-              {/* Search Results Dropdown */}
-              {showSearchResults && (searchQuery.length > 0) && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
-                  {loading && (
-                    <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-                      <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                      Aranıyor...
-                    </div>
-                  )}
-                  
-                  {error && (
-                    <div className="p-4 text-center text-red-500">
-                      {error}
-                    </div>
-                  )}
-                  
-                  {!loading && !error && products.length === 0 && searchQuery.length > 0 && (
-                    <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-                      Ürün bulunamadı
-                    </div>
-                  )}
-                  
-                  {!loading && !error && products.length > 0 && (
-                    <>
-                      {products.map((product) => (
-                        <button
-                          key={product.id}
-                          onClick={() => handleProductClick(product.id)}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-600 last:border-b-0 transition-colors"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                {product.urun_adi}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Stok Kodu: {product.stok_kodu}
-                              </p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <p className="text-sm font-semibold text-primary-600 dark:text-primary-400">
-                                ₺{typeof product.fiyat === 'number' ? product.fiyat.toFixed(2) : parseFloat(product.fiyat || '0').toFixed(2)}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Stok: {product.stok_miktari}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                      
-                      {products.length === 10 && (
-                        <div className="p-3 text-center border-t border-gray-100 dark:border-gray-600">
-                          <button
-                            onClick={() => {
-                              setShowSearchResults(false);
-                              router.push(`/products?search=${encodeURIComponent(searchQuery)}`);
-                            }}
-                            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
-                          >
-                            Tüm sonuçları görüntüle
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </form>
-          </div>
+
 
           {/* Right side */}
           <div className="flex items-center space-x-3">

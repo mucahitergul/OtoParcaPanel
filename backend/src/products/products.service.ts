@@ -412,8 +412,12 @@ export class ProductsService {
       product.sale_price = updateData.sale_price;
     }
     
+    // 5.1. Check auto sync setting
+    const autoSyncEnabled = await this.settingsService.getSetting('auto_sync_enabled');
+    const shouldAutoSync = autoSyncEnabled.value === true || autoSyncEnabled.value === 'true';
+    
     // Mark for sync and update timestamps
-    product.sync_required = true;
+    product.sync_required = !shouldAutoSync; // Only mark as requiring sync if auto sync is disabled
     product.updated_at = new Date();
     
     // 6. Save to database
@@ -426,11 +430,16 @@ export class ProductsService {
       throw new Error(`Database save failed: ${error.message}`);
     }
     
-
-    
-    // 8. Sync with WooCommerce if configured
+    // 7. Handle WooCommerce sync based on auto sync setting
     if (updatedProduct.woo_product_id) {
-      await this.syncToWooCommerce(updatedProduct, oldValues, updateData);
+      if (shouldAutoSync) {
+        // Auto sync is enabled - sync immediately to WooCommerce
+        this.logger.log(`Auto sync enabled - syncing product ${id} immediately to WooCommerce`);
+        await this.syncToWooCommerce(updatedProduct, oldValues, updateData);
+      } else {
+        // Auto sync is disabled - just mark as needing sync for manual sync later
+        this.logger.log(`Auto sync disabled - product ${id} marked for manual sync`);
+      }
     } else {
       this.logger.log(`Product ${id} has no WooCommerce ID, skipping sync`);
     }
@@ -546,13 +555,17 @@ export class ProductsService {
       if (Object.keys(wooUpdateData).length > 0) {
         await this.performWooCommerceUpdate(product.woo_product_id, wooUpdateData);
         
-        // Mark sync as completed
+        // Mark sync as completed - always set to false after successful sync
         product.sync_required = false;
         product.last_sync_date = new Date();
         await this.productRepository.save(product);
         
         this.logger.log(`Successfully synced product ${product.id} to WooCommerce with data:`, wooUpdateData);
       } else {
+        // Even if no changes, mark sync as completed since we checked
+        product.sync_required = false;
+        product.last_sync_date = new Date();
+        await this.productRepository.save(product);
         this.logger.log(`No WooCommerce sync needed for product ${product.id}`);
       }
       

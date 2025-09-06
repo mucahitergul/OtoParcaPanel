@@ -3,6 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import { User } from '../entities/user.entity';
 import { Product } from '../entities/product.entity';
 import { SupplierPrice } from '../entities/supplier-price.entity';
+import { Settings } from '../entities/settings.entity';
 
 
 export class DemoDataSeeder {
@@ -20,7 +21,8 @@ export class DemoDataSeeder {
     // Demo toptancı fiyatları oluştur
     await this.createDemoSupplierPrices();
 
-
+    // Sistem ayarlarını oluştur
+    await this.createSystemSettings();
 
     console.log('✅ Demo veriler başarıyla oluşturuldu!');
   }
@@ -189,5 +191,51 @@ export class DemoDataSeeder {
     console.log('💰 Toptancı fiyatları oluşturuldu');
   }
 
+  private async createSystemSettings() {
+    const settingsRepository = this.dataSource.getRepository(Settings);
+
+    // Varsayılan sistem ayarları
+    const defaultSettings = [
+      // Genel sistem ayarları
+      { key: 'default_profit_margin', value: '15', description: 'Varsayılan kar marjı yüzdesi' },
+      { key: 'auto_sync_enabled', value: 'true', description: 'Otomatik senkronizasyon aktif mi' },
+      { key: 'sync_interval_minutes', value: '60', description: 'Senkronizasyon aralığı (dakika)' },
+      { key: 'min_stock_threshold', value: '5', description: 'Minimum stok eşiği' },
+      { key: 'max_price_change_percentage', value: '20', description: 'Maksimum fiyat değişim yüzdesi' },
+      { key: 'python_scraper_api_url', value: 'http://localhost:8000', description: 'Python scraper API URL' },
+      
+      // WooCommerce ayarları (boş olarak başlatılır, admin panelinden doldurulur)
+      { key: 'woocommerce_api_url', value: '', description: 'WooCommerce site URL' },
+      { key: 'woocommerce_consumer_key', value: '', description: 'WooCommerce Consumer Key' },
+      { key: 'woocommerce_consumer_secret', value: '', description: 'WooCommerce Consumer Secret' },
+      
+      // Tedarikçi kar marjları
+      { key: 'dinamik_margin', value: '20', description: 'Dinamik tedarikçisi kar marjı' },
+      { key: 'basbug_margin', value: '25', description: 'Başbuğ tedarikçisi kar marjı' },
+      { key: 'dogus_margin', value: '22', description: 'Doğuş tedarikçisi kar marjı' },
+    ];
+
+    for (const settingData of defaultSettings) {
+      // Ayarın zaten var olup olmadığını kontrol et
+      const existingSetting = await settingsRepository.findOne({
+        where: { key: settingData.key },
+      });
+
+      if (!existingSetting) {
+        const setting = settingsRepository.create({
+          key: settingData.key,
+          value: settingData.value,
+          description: settingData.description,
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+
+        await settingsRepository.save(setting);
+        console.log(`✅ Sistem ayarı oluşturuldu: ${settingData.key}`);
+      }
+    }
+
+    console.log('⚙️ Sistem ayarları oluşturuldu');
+  }
 
 }

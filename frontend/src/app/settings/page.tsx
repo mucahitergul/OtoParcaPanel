@@ -32,13 +32,10 @@ import { toast } from 'sonner';
 interface SystemSettings {
   default_profit_margin: number;
   auto_sync_enabled: boolean;
-  sync_interval_minutes: number;
   woocommerce_api_url: string;
   woocommerce_consumer_key: string;
   woocommerce_consumer_secret: string;
   python_scraper_api_url: string;
-  min_stock_threshold: number;
-  max_price_change_percentage: number;
 }
 
 interface ProfitMargins {
@@ -51,13 +48,10 @@ export default function SettingsPage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     default_profit_margin: 15,
     auto_sync_enabled: true,
-    sync_interval_minutes: 60,
     woocommerce_api_url: '',
     woocommerce_consumer_key: '',
     woocommerce_consumer_secret: '',
     python_scraper_api_url: 'http://localhost:8000',
-    min_stock_threshold: 5,
-    max_price_change_percentage: 20,
   });
 
   const [profitMargins, setProfitMargins] = useState<ProfitMargins>({
@@ -74,6 +68,13 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchSettings();
+    
+    // URL parametresinden tab'ı oku
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['general', 'profit-margins', 'woocommerce'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
   }, []);
 
   const fetchSettings = async () => {
@@ -408,37 +409,7 @@ export default function SettingsPage() {
                       className="w-full px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 transition-colors"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Senkronizasyon Aralığı (dakika)</label>
-                    <input
-                      type="number"
-                      value={systemSettings.sync_interval_minutes}
-                      onChange={(e) => setSystemSettings(prev => ({ ...prev, sync_interval_minutes: Number(e.target.value) }))}
-                      min="1"
-                      className="w-full px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 transition-colors"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum Stok Eşiği</label>
-                    <input
-                      type="number"
-                      value={systemSettings.min_stock_threshold}
-                      onChange={(e) => setSystemSettings(prev => ({ ...prev, min_stock_threshold: Number(e.target.value) }))}
-                      min="0"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Maksimum Fiyat Değişim Yüzdesi (%)</label>
-                    <input
-                      type="number"
-                      value={systemSettings.max_price_change_percentage}
-                      onChange={(e) => setSystemSettings(prev => ({ ...prev, max_price_change_percentage: Number(e.target.value) }))}
-                      min="0"
-                      max="100"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
-                    />
-                  </div>
+
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Python Scraper API URL</label>
                     <input
@@ -460,7 +431,7 @@ export default function SettingsPage() {
                     <label htmlFor="autoSync" className="text-sm font-medium text-gray-700 dark:text-gray-300">Otomatik Senkronizasyon</label>
                   </div>
                 </div>
-                <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-end pt-6">
                   <button
                     onClick={handleSaveSettings}
                     disabled={saving}
@@ -482,6 +453,21 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tedarikçi Kar Marjları</h2>
               </div>
               <div className="space-y-6">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200">Kar Marjı Kullanımı</h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                        Tedarikçi kar marjı 0 olarak ayarlanırsa veya boş bırakılırsa, <strong>Varsayılan Kar Marjı</strong> ({systemSettings.default_profit_margin}%) kullanılacaktır.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dinamik Kar Marjı (%)</label>
@@ -517,7 +503,7 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-                <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-end pt-6">
                   <button
                     onClick={handleSaveProfitMargins}
                     disabled={saving}
@@ -597,7 +583,7 @@ export default function SettingsPage() {
                   )}
                 </div>
                 
-                <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-end pt-6">
                   <button
                     onClick={handleSaveWooCommerceSettings}
                     disabled={saving}

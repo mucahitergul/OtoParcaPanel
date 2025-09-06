@@ -247,18 +247,18 @@ export default function DashboardPage() {
       color: 'bg-green-500'
     },
     {
-      title: 'Fiyat Geçmişi',
-      description: 'Fiyat değişikliklerini takip et',
-      href: '/price-history',
-      icon: History,
-      color: 'bg-purple-500'
-    },
-    {
       title: 'Sistem Ayarları',
       description: 'Kar marjları ve entegrasyonları yönet',
       href: '/settings',
       icon: Settings,
       color: 'bg-gray-500'
+    },
+    {
+      title: 'WooCommerce Ayarları',
+      description: 'WooCommerce entegrasyonunu yapılandır',
+      href: '/settings?tab=woocommerce',
+      icon: ShoppingCart,
+      color: 'bg-orange-500'
     }
   ];
 

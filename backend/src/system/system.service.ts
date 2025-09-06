@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class SystemService {
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    @Inject(forwardRef(() => SettingsService))
+    private settingsService: SettingsService,
+  ) {}
 
   async getSystemStatus() {
     const [wooCommerceStatus, pythonScraperStatus, dogusScraperStatus, basbugScraperStatus, dinamikScraperStatus] = await Promise.all([
@@ -26,11 +31,10 @@ export class SystemService {
 
   private async checkWooCommerceStatus() {
     try {
-      const wooUrl = this.configService.get('WOO_URL');
-      const wooKey = this.configService.get('WOO_CONSUMER_KEY');
-      const wooSecret = this.configService.get('WOO_CONSUMER_SECRET');
-
-      if (!wooUrl || !wooKey || !wooSecret) {
+      // Veritabanından WooCommerce ayarlarını al
+      const wooSettings = await this.settingsService.getWooCommerceSettings();
+      
+      if (!wooSettings.woocommerce_api_url || !wooSettings.woocommerce_consumer_key || !wooSettings.woocommerce_consumer_secret) {
         return {
           connected: false,
           lastSync: 'Yapılandırma eksik',
@@ -39,12 +43,17 @@ export class SystemService {
       }
 
       // WooCommerce API'ye basit bir test isteği gönder
-      const response = await axios.get(`${wooUrl}/wp-json/wc/v3/system_status`, {
+      const apiUrl = wooSettings.woocommerce_api_url.replace(/\/$/, '');
+      const response = await axios.get(`${apiUrl}/wp-json/wc/v3/system_status`, {
         auth: {
-          username: wooKey,
-          password: wooSecret,
+          username: wooSettings.woocommerce_consumer_key,
+          password: wooSettings.woocommerce_consumer_secret,
         },
         timeout: 5000,
+        headers: {
+          'User-Agent': 'OtoParcaPanel/1.0',
+          'Accept': 'application/json'
+        }
       });
 
       if (response.status === 200) {

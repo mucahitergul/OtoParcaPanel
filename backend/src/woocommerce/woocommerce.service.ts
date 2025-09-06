@@ -1,5 +1,4 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { SettingsService } from '../settings/settings.service';
 
@@ -33,53 +32,28 @@ export class WooCommerceService {
   private config: WooCommerceConfig;
 
   constructor(
-    private configService: ConfigService,
     @Inject(forwardRef(() => SettingsService))
     private settingsService: SettingsService,
   ) {
-    // Initialize with default config first
-    this.config = {
-      url: 'https://example.com',
-      consumerKey: '',
-      consumerSecret: '',
-    };
-    // Then load actual config asynchronously
     this.initializeConfig();
   }
 
   private async initializeConfig() {
     try {
-      // Try to get settings from database first, fallback to env variables
+      // Get settings from database only
       const wooSettings = await this.settingsService.getWooCommerceSettings();
       this.config = {
-        url:
-          wooSettings.woocommerce_api_url ||
-          this.configService.get<string>(
-            'WOOCOMMERCE_URL',
-            'https://example.com',
-          ),
-        consumerKey:
-          wooSettings.woocommerce_consumer_key ||
-          this.configService.get<string>('WOOCOMMERCE_CONSUMER_KEY', ''),
-        consumerSecret:
-          wooSettings.woocommerce_consumer_secret ||
-          this.configService.get<string>('WOOCOMMERCE_CONSUMER_SECRET', ''),
+        url: wooSettings.woocommerce_api_url || 'https://example.com',
+        consumerKey: wooSettings.woocommerce_consumer_key || '',
+        consumerSecret: wooSettings.woocommerce_consumer_secret || '',
       };
+      this.logger.log('WooCommerce configuration loaded from database');
     } catch (error) {
-      // Fallback to env variables if settings service is not available
+      this.logger.warn('Failed to load WooCommerce settings from database, using defaults');
       this.config = {
-        url: this.configService.get<string>(
-          'WOOCOMMERCE_URL',
-          'https://example.com',
-        ),
-        consumerKey: this.configService.get<string>(
-          'WOOCOMMERCE_CONSUMER_KEY',
-          '',
-        ),
-        consumerSecret: this.configService.get<string>(
-          'WOOCOMMERCE_CONSUMER_SECRET',
-          '',
-        ),
+        url: 'https://example.com',
+        consumerKey: '',
+        consumerSecret: '',
       };
     }
 
@@ -537,9 +511,9 @@ export class WooCommerceService {
     try {
       const wooSettings = await this.settingsService.getWooCommerceSettings();
       this.config = {
-        url: wooSettings.url,
-        consumerKey: wooSettings.consumer_key,
-        consumerSecret: wooSettings.consumer_secret,
+        url: wooSettings.woocommerce_api_url || 'https://example.com',
+        consumerKey: wooSettings.woocommerce_consumer_key || '',
+        consumerSecret: wooSettings.woocommerce_consumer_secret || '',
       };
       this.setupAxiosInstance();
       this.logger.log('WooCommerce configuration updated from settings');

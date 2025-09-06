@@ -311,6 +311,7 @@ export class SettingsService {
 
   /**
    * Get profit margin for specific supplier
+   * If supplier-specific margin is not set or is 0, use default profit margin
    */
   async getSupplierProfitMargin(supplierName: 'Dinamik' | 'Başbuğ' | 'Doğuş'): Promise<number> {
     const keyMap = {
@@ -319,17 +320,29 @@ export class SettingsService {
       'Doğuş': 'dogus_profit_margin',
     };
 
-    const defaultMargins = {
-      'Dinamik': 20,
-      'Başbuğ': 25,
-      'Doğuş': 22,
-    };
-
-    const setting = await this.settingsRepository.findOne({
+    // Get supplier-specific margin
+    const supplierSetting = await this.settingsRepository.findOne({
       where: { key: keyMap[supplierName] },
     });
 
-    return setting ? parseFloat(setting.value) : defaultMargins[supplierName];
+    // If supplier margin exists and is greater than 0, use it
+    if (supplierSetting && parseFloat(supplierSetting.value) > 0) {
+      return parseFloat(supplierSetting.value);
+    }
+
+    // Otherwise, get and use default profit margin
+    const defaultSetting = await this.settingsRepository.findOne({
+      where: { key: 'default_profit_margin' },
+    });
+
+    const defaultMargin = defaultSetting ? parseFloat(defaultSetting.value) : 15;
+    
+    this.logger.log(
+      `Using default profit margin (${defaultMargin}%) for supplier ${supplierName} ` +
+      `(supplier-specific margin not set or is 0)`
+    );
+
+    return defaultMargin;
   }
 
   /**
