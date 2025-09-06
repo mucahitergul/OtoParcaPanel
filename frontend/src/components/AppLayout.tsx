@@ -1,7 +1,6 @@
 'use client';
 
 import { useAuth } from '../contexts/AuthContext';
-import Sidebar from './Sidebar';
 import Header from './Header';
 import { usePathname } from 'next/navigation';
 
@@ -31,7 +30,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   if (loading || !isInitialized) {
     console.log('[AppLayout] Showing loading spinner');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-none">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
@@ -41,7 +40,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   if (isPublicRoute) {
     console.log('[AppLayout] Rendering public route');
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 rounded-none">
         {children}
       </div>
     );
@@ -60,7 +59,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   if (!hasValidAuth) {
     console.log('[AppLayout] Not authenticated, showing login prompt');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-none">
         <div className="max-w-md w-full space-y-8 p-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -83,24 +82,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   console.log('[AppLayout] Rendering authenticated layout');
 
-  // Authenticated layout with sidebar and header
+  // Authenticated layout with header only (no sidebar)
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 rounded-none">
+      <Header />
       
-      {/* Main content area */}
-      <div className="lg:pl-64">
-        <Header />
-        
-        {/* Page content */}
-        <main className="py-6">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="animate-in">
-              {children}
-            </div>
+      {/* Main content area - full width */}
+      <main className="py-8">
+        <div className="px-6 lg:px-8">
+          <div className="animate-in">
+            {children}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

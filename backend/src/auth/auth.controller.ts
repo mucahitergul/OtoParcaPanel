@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Put,
   Body,
   Get,
   UseGuards,
@@ -79,6 +80,13 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Put('profile')
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(@Request() req, @Body() updateData: any) {
+    return this.authService.updateProfile(req.user.id, updateData);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('me')
   async getCurrentUser(@Request() req) {
     return {
@@ -112,5 +120,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resendVerification(@Request() req) {
     return this.authService.resendVerificationEmail(req.user.id);
+  }
+
+
+
+  @Public()
+  @Post('create-admin')
+  @HttpCode(HttpStatus.OK)
+  async createAdmin() {
+    return this.authService.createAdminUser();
   }
 }

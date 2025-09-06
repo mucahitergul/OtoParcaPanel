@@ -9,6 +9,7 @@ interface User {
   email: string;
   firstName?: string;
   lastName?: string;
+  phone?: string;
 }
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   register: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   logout: () => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateProfile: (profileData: Partial<User>) => Promise<void>;
   refreshToken: () => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
   resendVerification: () => Promise<void>;
@@ -190,6 +192,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateProfile = async (profileData: Partial<User>) => {
+    try {
+      debugLog('👤 Update profile attempt');
+      const response = await authApi.updateProfile(profileData);
+      const updatedUser = response.data.user;
+      setUser(updatedUser);
+      debugLog('✅ Profile updated successfully');
+    } catch (error: any) {
+      debugLog('❌ Update profile failed:', error.response?.data?.message || error.message);
+      throw new Error(error.response?.data?.message || 'Profil güncelleme başarısız');
+    }
+  };
+
   const refreshToken = async () => {
     try {
       debugLog('🔄 Refresh token attempt');
@@ -245,6 +260,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     changePassword,
+    updateProfile,
     refreshToken,
     verifyEmail,
     resendVerification,

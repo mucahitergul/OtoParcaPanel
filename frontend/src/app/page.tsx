@@ -1,20 +1,53 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import Link from 'next/link';
 import { Package, Shield, TrendingUp, Users } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function Home() {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  const [autoLogging, setAutoLogging] = useState(false);
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
       router.push('/dashboard');
     }
   }, [isAuthenticated, loading, router]);
+
+  const handleAutoLogin = async () => {
+    try {
+      setAutoLogging(true);
+      const response = await fetch('/api/auth/auto-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Store token and redirect
+        sessionStorage.setItem('auth_token', data.token);
+        toast.success('Otomatik giriş başarılı!');
+        router.push('/dashboard');
+      } else {
+        toast.error('Otomatik giriş başarısız');
+      }
+    } catch (error) {
+      console.error('Auto login error:', error);
+      toast.error('Otomatik giriş sırasında hata oluştu');
+    } finally {
+      setAutoLogging(false);
+    }
+  };
+
+  const handleGoToDashboard = () => {
+    router.push('/dashboard');
+  };
 
   if (loading) {
     return (
@@ -44,11 +77,24 @@ export default function Home() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={handleAutoLogin}
+                disabled={autoLogging}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              >
+                {autoLogging ? 'Giriş Yapılıyor...' : 'Otomatik Giriş'}
+              </button>
+              <button
+                onClick={handleGoToDashboard}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              >
+                Panele Git
+              </button>
               <Link
                 href="/login"
                 className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
               >
-                Giriş Yap
+                Manuel Giriş
               </Link>
               <Link
                 href="/register"
@@ -82,7 +128,7 @@ export default function Home() {
             </Link>
             <Link
               href="/login"
-              className="border border-gray-300 hover:border-gray-400 text-gray-700 px-8 py-3 rounded-lg text-lg font-medium transition-colors"
+              className="text-gray-700 px-8 py-3 text-lg font-medium transition-colors"
             >
               Giriş Yap
             </Link>

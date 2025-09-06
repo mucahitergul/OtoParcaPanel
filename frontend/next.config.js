@@ -17,8 +17,12 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/suppliers/basbuğ',
-        destination: '/suppliers/basbuğ',
+        source: '/api/:path*',
+        destination: 'http://localhost:3001/api/:path*',
+      },
+      {
+        source: '/suppliers/basbug',
+        destination: '/suppliers/basbug',
       },
     ];
   },

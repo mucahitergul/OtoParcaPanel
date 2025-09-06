@@ -17,6 +17,7 @@ import {
   BarChart3,
   AlertCircle,
   CheckCircle,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -26,8 +27,7 @@ interface Product {
   stok_kodu: string;
   urun_adi: string;
   stok_miktari: number;
-  fiyat: number;
-  regular_price?: number;
+  regular_price: number;
   sale_price?: number;
   stock_status: 'instock' | 'outofstock' | 'onbackorder';
   categories?: Array<{ id: number; name: string; slug: string }>;
@@ -39,34 +39,21 @@ interface Product {
   created_at: string;
   updated_at: string;
   supplier_prices?: SupplierPrice[];
-  update_history?: UpdateHistory[];
+  supplier_tags?: string[];
 }
 
 interface SupplierPrice {
   id: number;
-  toptanci_adi: 'Dinamik' | 'Başbuğ' | 'Doğuş';
-  stok_durumu: 'instock' | 'outofstock' | 'onbackorder';
-  fiyat: number;
-  old_fiyat?: number;
-  stok_miktari: number;
-  son_guncelleme?: string;
+  supplier_name: 'Dinamik' | 'Başbuğ' | 'Doğuş';
+  stock_status: 'instock' | 'outofstock' | 'onbackorder';
+  price: number;
+  stock_quantity: number;
+  last_updated?: string;
   is_active: boolean;
+  is_available: boolean;
 }
 
-interface UpdateHistory {
-  id: number;
-  toptanci_adi: string;
-  update_type: string;
-  eski_fiyat?: number;
-  yeni_fiyat?: number;
-  eski_stok?: number;
-  yeni_stok?: number;
-  eski_stok_durumu?: string;
-  yeni_stok_durumu?: string;
-  notes?: string;
-  is_successful: boolean;
-  guncelleme_tarihi: string;
-}
+
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -75,13 +62,16 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [supplierPrices, setSupplierPrices] = useState<SupplierPrice[]>([]);
-  const [updateHistory, setUpdateHistory] = useState<UpdateHistory[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [editingStock, setEditingStock] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [newStock, setNewStock] = useState(0);
   const [newPrice, setNewPrice] = useState(0);
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [isUpdatingTags, setIsUpdatingTags] = useState(false);
+  const [isTestingWooSync, setIsTestingWooSync] = useState(false);
 
   const fetchProduct = async () => {
     try {
@@ -90,7 +80,7 @@ export default function ProductDetailPage() {
       if (response.data.success) {
         setProduct(response.data.data);
         setNewStock(response.data.data.stok_miktari);
-        setNewPrice(response.data.data.fiyat);
+        setNewPrice(response.data.data.regular_price);
       }
     } catch (error) {
       console.error('Error fetching product:', error);
@@ -110,16 +100,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  const fetchUpdateHistory = async () => {
-    try {
-      const response = await productApi.getUpdateHistory(productId, 20);
-      if (response.data.success) {
-        setUpdateHistory(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching update history:', error);
-    }
-  };
+
 
   const handleUpdateStock = async () => {
     try {
@@ -128,7 +109,7 @@ export default function ProductDetailPage() {
       if (response.data.success) {
         setProduct(response.data.data);
         setEditingStock(false);
-        await fetchUpdateHistory();
+
         alert('Stok başarıyla güncellendi!');
       }
     } catch (error) {
@@ -146,7 +127,7 @@ export default function ProductDetailPage() {
       if (response.data.success) {
         setProduct(response.data.data);
         setEditingPrice(false);
-        await fetchUpdateHistory();
+
         alert('Fiyat başarıyla güncellendi!');
       }
     } catch (error) {
@@ -154,6 +135,82 @@ export default function ProductDetailPage() {
       alert('Fiyat güncellenirken hata oluştu!');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!confirm('Bu ürünü kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await productApi.deleteProduct(productId);
+      alert('Ürün başarıyla silindi!');
+      router.push('/products');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      alert('Ürün silinirken hata oluştu!');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleUpdateSupplierTags = async () => {
+    try {
+      setIsUpdatingTags(true);
+      const response = await fetch(`/api/products/${productId}/update-tags`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // Refresh product data to get updated tags
+          await fetchProduct();
+          alert('Tedarikçi etiketleri başarıyla güncellendi!');
+        } else {
+          alert('Etiket güncellenirken hata oluştu!');
+        }
+      } else {
+        alert('Etiket güncellenirken hata oluştu!');
+      }
+    } catch (error) {
+      console.error('Error updating supplier tags:', error);
+      alert('Etiket güncellenirken hata oluştu!');
+    } finally {
+      setIsUpdatingTags(false);
+    }
+  };
+
+  const handleTestWooSync = async () => {
+    try {
+      setIsTestingWooSync(true);
+      const response = await fetch(`/api/products/${productId}/test-woo-sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          alert('WooCommerce senkronizasyon testi başarılı!');
+        } else {
+          alert('WooCommerce senkronizasyon testi başarısız: ' + (result.message || 'Bilinmeyen hata'));
+        }
+      } else {
+        alert('WooCommerce senkronizasyon testi sırasında hata oluştu!');
+      }
+    } catch (error) {
+      console.error('Error testing WooCommerce sync:', error);
+      alert('WooCommerce senkronizasyon testi sırasında hata oluştu!');
+    } finally {
+      setIsTestingWooSync(false);
     }
   };
 
@@ -215,17 +272,16 @@ export default function ProductDetailPage() {
 
   const getBestSupplierPrice = () => {
     const availablePrices = supplierPrices.filter(
-      (sp) => sp.stok_durumu === 'instock' && sp.is_active
+      (sp) => sp.stock_status === 'instock' && sp.is_active && sp.is_available
     );
     if (availablePrices.length === 0) return null;
-    return availablePrices.sort((a, b) => a.fiyat - b.fiyat)[0];
+    return availablePrices.sort((a, b) => a.price - b.price)[0];
   };
 
   useEffect(() => {
     if (productId) {
       fetchProduct();
       fetchSupplierPrices();
-      fetchUpdateHistory();
     }
   }, [productId]);
 
@@ -281,7 +337,7 @@ export default function ProductDetailPage() {
           {/* Main Product Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Product Details Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-200 dark:border-gray-700 p-6">
+            <div className="bg-white dark:bg-gray-800 shadow-soft p-6">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center">
                   {product.images && product.images.length > 0 ? (
@@ -316,7 +372,7 @@ export default function ProductDetailPage() {
                 {/* Price */}
                 <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Fiyat</h3>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">WooCommerce Normal Fiyat</h3>
                     <button
                       onClick={() => setEditingPrice(!editingPrice)}
                       className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
@@ -343,10 +399,12 @@ export default function ProductDetailPage() {
                     </div>
                   ) : (
                     <div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatPrice(product.fiyat)}</p>
-                      {product.regular_price && product.regular_price !== product.fiyat && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 line-through">
-                          {formatPrice(product.regular_price)}
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {formatPrice(product.regular_price)}
+                      </p>
+                      {product.sale_price && product.sale_price > 0 && (
+                        <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                          İndirimli: {formatPrice(product.sale_price)}
                         </p>
                       )}
                     </div>
@@ -411,16 +469,61 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {/* Description */}
-              {product.description && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Açıklama</h3>
-                  <div
-                    className="text-sm text-gray-600 dark:text-gray-400"
-                    dangerouslySetInnerHTML={{ __html: product.description }}
-                  />
+              {/* Supplier Tags */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Tedarikçi Etiketleri</h3>
+                  <div className="flex gap-2">
+                    <button
+                       onClick={handleUpdateSupplierTags}
+                       disabled={isUpdatingTags}
+                       className="inline-flex items-center px-3 py-1 text-xs font-medium bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                     >
+                       {isUpdatingTags ? (
+                         <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                       ) : (
+                         <RefreshCw className="h-3 w-3 mr-1" />
+                       )}
+                       {isUpdatingTags ? 'Güncelleniyor...' : 'Etiketleri Güncelle'}
+                     </button>
+                     
+                     {product.woo_product_id && (
+                       <button
+                         onClick={handleTestWooSync}
+                         disabled={isTestingWooSync}
+                         className="inline-flex items-center px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                       >
+                         {isTestingWooSync ? (
+                           <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                         ) : (
+                           <CheckCircle className="h-3 w-3 mr-1" />
+                         )}
+                         {isTestingWooSync ? 'Test Ediliyor...' : 'WooCommerce Sync Test'}
+                       </button>
+                     )}
+                  </div>
                 </div>
-              )}
+                <div className="flex flex-wrap gap-2">
+                  {product.supplier_tags && product.supplier_tags.length > 0 ? (
+                    product.supplier_tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          getSupplierColor(tag)
+                        }`}
+                      >
+                        {tag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Henüz etiket bulunmuyor. Etiketleri güncellemek için yukarıdaki butona tıklayın.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+
             </div>
 
             {/* Supplier Prices */}
@@ -442,9 +545,9 @@ export default function ProductDetailPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                            getSupplierColor(supplier.toptanci_adi)
+                            getSupplierColor(supplier.supplier_name)
                           }`}>
-                            {supplier.toptanci_adi}
+                            {supplier.supplier_name}
                           </span>
                           {bestPrice?.id === supplier.id && (
                             <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
@@ -454,36 +557,36 @@ export default function ProductDetailPage() {
                           )}
                         </div>
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          getStockStatusColor(supplier.stok_durumu)
+                          getStockStatusColor(supplier.stock_status)
                         }`}>
-                          {getStockStatusText(supplier.stok_durumu)}
+                          {getStockStatusText(supplier.stock_status)}
                         </span>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Fiyat</p>
                           <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {formatPrice(supplier.fiyat)}
+                            {formatPrice(supplier.price)}
                           </p>
-                          {supplier.old_fiyat && supplier.old_fiyat !== supplier.fiyat && (
+                          {supplier.old_price && supplier.old_price !== supplier.price && (
                             <div className="flex items-center gap-1 mt-1">
-                              {supplier.fiyat > supplier.old_fiyat ? (
+                              {supplier.price > supplier.old_price ? (
                                 <TrendingUp className="h-3 w-3 text-red-500" />
                               ) : (
                                 <TrendingDown className="h-3 w-3 text-green-500" />
                               )}
                               <span className="text-xs text-gray-500">
-                                {formatPrice(supplier.old_fiyat)}
+                                {formatPrice(supplier.old_price)}
                               </span>
                             </div>
                           )}
                         </div>
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Stok</p>
-                          <p className="text-lg font-semibold text-gray-900 dark:text-white">{supplier.stok_miktari}</p>
-                          {supplier.son_guncelleme && (
+                          <p className="text-lg font-semibold text-gray-900 dark:text-white">{supplier.stock_quantity}</p>
+                          {supplier.last_updated && (
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {formatDate(supplier.son_guncelleme)}
+                              {formatDate(supplier.last_updated)}
                             </p>
                           )}
                         </div>
@@ -497,6 +600,32 @@ export default function ProductDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Actions */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">İşlemler</h3>
+              <div className="space-y-3">
+                <Link
+                  href={`/products/${productId}/edit`}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  Ürünü Düzenle
+                </Link>
+                <button
+                  onClick={handleDeleteProduct}
+                  disabled={deleting}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {deleting ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  {deleting ? 'Siliniyor...' : 'Ürünü Sil'}
+                </button>
+              </div>
+            </div>
+
             {/* Quick Stats */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Özet</h3>
@@ -530,47 +659,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* Update History */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Güncelleme Geçmişi</h3>
-              {updateHistory.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-4">Henüz güncelleme geçmişi bulunmuyor</p>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {updateHistory.slice(0, 10).map((history) => (
-                    <div key={history.id} className="border-l-4 border-primary-500 pl-3 py-2">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          getSupplierColor(history.toptanci_adi)
-                        }`}>
-                          {history.toptanci_adi}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatDate(history.guncelleme_tarihi)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-900 dark:text-white capitalize">{history.update_type}</p>
-                      {history.eski_fiyat && history.yeni_fiyat && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Fiyat: {formatPrice(history.eski_fiyat)} → {formatPrice(history.yeni_fiyat)}
-                        </p>
-                      )}
-                      {history.eski_stok !== null && history.yeni_stok !== null && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Stok: {history.eski_stok} → {history.yeni_stok}
-                        </p>
-                      )}
-                      {!history.is_successful && (
-                        <div className="flex items-center mt-1">
-                          <AlertCircle className="h-3 w-3 text-red-500 mr-1" />
-                          <span className="text-xs text-red-600">Başarısız</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
           </div>
         </div>
       </div>

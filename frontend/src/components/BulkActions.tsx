@@ -89,7 +89,7 @@ export default function BulkActions({
           
         case 'delete':
           await onBulkDelete(selectedItems);
-          toast.success(`${selectedItems.length} ürün silindi`);
+          toast.success(`${selectedItems.length} ürün kalıcı olarak silindi`);
           break;
           
         case 'price':
@@ -204,7 +204,7 @@ export default function BulkActions({
               <button
                 onClick={() => handleAction('export')}
                 disabled={loading}
-                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Download className="h-4 w-4" />
                 Dışa Aktar
@@ -345,7 +345,7 @@ export default function BulkActions({
             </div>
             
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              {selectedItems.length} ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+              {selectedItems.length} ürünü kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve ürünler veritabanından tamamen kaldırılacaktır.
             </p>
             
             <div className="flex gap-3">

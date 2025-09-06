@@ -1,7 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://otoparca.isletmemdijitalde.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // Create axios instance
 const api = axios.create({
@@ -70,6 +70,9 @@ export const authApi = {
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.patch('/auth/change-password', data),
   
+  updateProfile: (data: { firstName?: string; lastName?: string; email?: string; phone?: string }) =>
+    api.patch('/auth/profile', data),
+  
   logout: () =>
     api.post('/auth/logout'),
   
@@ -102,6 +105,8 @@ export const productApi = {
 
   getProductBySku: (sku: string) => api.get(`/products/sku/${sku}`),
 
+  getStatistics: () => api.get('/products/statistics'),
+
   getProductStatistics: () => api.get('/products/statistics'),
 
   getProductsNeedingSync: (limit?: number) => 
@@ -122,12 +127,11 @@ export const productApi = {
   updateProduct: (productId: number, data: {
     urun_adi: string;
     stok_kodu: string;
-    fiyat: number;
+    regular_price: number;
     stok_miktari: number;
     stock_status: 'instock' | 'outofstock' | 'onbackorder';
     description?: string;
     short_description?: string;
-    regular_price?: number;
     sale_price?: number;
   }) => api.put(`/products/${productId}`, data),
 
@@ -141,6 +145,30 @@ export const productApi = {
   syncProducts: (options?: { forceUpdate?: boolean; batchSize?: number }) => 
     api.post('/products/sync', options),
 
+  // WooCommerce sync
+  pushToWooCommerce: (options?: { productIds?: number[]; batchSize?: number }) =>
+    api.post('/products/push-to-woocommerce', options),
+  
+  // Single product sync
+  syncSingleProduct: (productId: number) =>
+    api.post('/products/sync-single', { productId }),
+
+  // Bulk Operations
+  bulkSync: (productIds: number[], batchSize?: number) => 
+    api.post('/products/bulk/sync', { productIds, batchSize }),
+
+  bulkDelete: (productIds: number[]) => 
+    api.post('/products/bulk/delete', { productIds }),
+
+  bulkPriceUpdate: (productIds: number[], updateType: 'fixed' | 'percentage_increase' | 'percentage_decrease' | 'amount_increase' | 'amount_decrease', value: number) => 
+    api.post('/products/bulk/price-update', { productIds, updateType, value }),
+
+  bulkStockUpdate: (productIds: number[], updateType: 'fixed' | 'increase' | 'decrease', value: number) => 
+    api.post('/products/bulk/stock-update', { productIds, updateType, value }),
+
+  bulkExport: (productIds: number[], format: 'csv' | 'excel' | 'pdf', fields?: string[]) => 
+    api.post('/products/bulk/export', { productIds, format, fields }),
+
   getSyncStatus: () => api.get('/products/sync/status'),
 
   triggerImmediateSync: (options?: { forceUpdate?: boolean; productIds?: number[] }) => 
@@ -149,7 +177,12 @@ export const productApi = {
   markForSync: (productIds: number[]) => 
     api.post('/products/mark-for-sync', { productIds }),
 
+  getProductsNeedingSync: (limit?: number) => 
+    api.get('/products/needs-sync', { params: { limit } }),
+
   deleteProduct: (id: number) => api.delete(`/products/${id}`),
+
+  deleteAllProducts: () => api.post('/products/delete-all'),
 };
 
 // WooCommerce API endpoints

@@ -3,8 +3,8 @@ import { config } from 'dotenv';
 import { User } from '../entities/user.entity';
 import { Product } from '../entities/product.entity';
 import { SupplierPrice } from '../entities/supplier-price.entity';
-import { UpdateHistory } from '../entities/update-history.entity';
-import { PriceHistory } from '../entities/price-history.entity';
+
+
 import { StockHistory } from '../entities/stock-history.entity';
 import { Settings } from '../entities/settings.entity';
 import { DemoDataSeeder } from './demo-data.seed';
@@ -14,12 +14,12 @@ config();
 
 const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DATABASE_HOST || 'localhost',
-  port: parseInt(process.env.DATABASE_PORT || '5432'),
-  username: process.env.DATABASE_USERNAME || 'postgres',
-  password: process.env.DATABASE_PASSWORD || '',
-  database: process.env.DATABASE_NAME || 'oto_parca_panel',
-  entities: [User, Product, SupplierPrice, UpdateHistory, PriceHistory, StockHistory, Settings],
+  host: 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  username: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASS || '',
+  database: process.env.DB_NAME || 'oto_parca_panel',
+  entities: [User, Product, SupplierPrice, StockHistory, Settings],
   synchronize: true, // Seeder çalıştırırken tabloları oluştur
   dropSchema: true, // Mevcut şemayı sil ve yeniden oluştur
   logging: false,

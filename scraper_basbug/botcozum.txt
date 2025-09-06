@@ -1,0 +1,37 @@
+<div cdkdrag="" cdkdragboundary=".cdk-overlay-container" role="document" class="cdk-drag ant-modal ng-tns-c2116847144-0 cdk-drag-disabled" style="width: 520px; transform-origin: -133.344px 444.5px 0px;">
+    <div class="ant-modal-content ng-tns-c2116847144-0">
+        <!---->
+        <div nz-modal-title="" cdkdraghandle="" class="ant-modal-header cdk-drag-handle ng-tns-c2116847144-0 ng-star-inserted" style="cursor: auto;">
+            <div class="ant-modal-title">
+                <div class="ng-star-inserted">🔐 Güvenlik Doğrulaması</div>
+                <!---->
+                <!---->
+            </div>
+        </div>
+        <!---->
+        <div class="ant-modal-body ng-tns-c2116847144-0">
+            <app-recaptcha-content _nghost-ng-c366647797="" class="ng-star-inserted">
+                <div _ngcontent-ng-c366647797="" class="d-flex align-items-center flex-column text-center ng-star-inserted" style="">
+                    <p _ngcontent-ng-c366647797=""> Güvenlik doğrulaması gerekmektedir. Görseldeki yazıyı aşağıdaki alana girerek uygulamaya geri dönebilirsiniz. </p>
+                    <div _ngcontent-ng-c366647797="" class="position-relative ng-star-inserted"><img _ngcontent-ng-c366647797="" class="mt-4" src="https://b2bbasbug.com/Service/JsonService.svc/GetCaptchaImage/e36662b8-13a7-4f23-a8c1-d16969ee9419"><button _ngcontent-ng-c366647797="" tabindex="-1" class="position-absolute top end text-success btn"><fa-icon _ngcontent-ng-c366647797="" size="lg" class="ng-fa-icon"><svg role="img" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="redo" class="svg-inline--fa fa-redo fa-lg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M500.33 0h-47.41a12 12 0 0 0-12 12.57l4 82.76A247.42 247.42 0 0 0 256 8C119.34 8 7.9 119.53 8 256.19 8.1 393.07 119.1 504 256 504a247.1 247.1 0 0 0 166.18-63.91 12 12 0 0 0 .48-17.43l-34-34a12 12 0 0 0-16.38-.55A176 176 0 1 1 402.1 157.8l-101.53-4.87a12 12 0 0 0-12.57 12v47.41a12 12 0 0 0 12 12h200.33a12 12 0 0 0 12-12V12a12 12 0 0 0-12-12z"></path></svg></fa-icon></button></div>
+                    <!----><input _ngcontent-ng-c366647797="" maxlength="5" class="form-control w-50 mt-4 ng-valid ng-star-inserted ng-dirty ng-touched" autofocus="">
+                    <!---->
+                    <!---->
+                    <!---->
+                    <!----><button _ngcontent-ng-c366647797="" class="btn btn-primary w-50 mt-2 ng-star-inserted"> Onayla </button>
+                    <!---->
+                </div>
+                <!---->
+            </app-recaptcha-content>
+            <!---->
+            <!---->
+        </div>
+        <div nz-modal-footer="" class="ant-modal-footer ng-tns-c2116847144-0 ng-star-inserted" style="">
+            <!---->
+            <!---->
+            <!---->
+            <!---->
+        </div>
+        <!---->
+    </div>
+</div>

@@ -82,6 +82,25 @@ export class SettingsService {
         description: 'Maksimum fiyat değişim oranı (%)',
         data_type: 'number' as const,
       },
+      {
+        key: 'dinamik_profit_margin',
+        value: '20',
+        description: 'Dinamik tedarikçi kar oranı (%)',
+        data_type: 'number' as const,
+      },
+      {
+        key: 'basbug_profit_margin',
+        value: '25',
+        description: 'Başbuğ tedarikçi kar oranı (%)',
+        data_type: 'number' as const,
+      },
+      {
+        key: 'dogus_profit_margin',
+        value: '22',
+        description: 'Doğuş tedarikçi kar oranı (%)',
+        data_type: 'number' as const,
+      },
+
     ];
 
     for (const setting of defaultSettings) {
@@ -230,6 +249,90 @@ export class SettingsService {
   }
 
   /**
+   * Get supplier-specific profit margins
+   */
+  async getSupplierProfitMargins() {
+    const dinamikMargin = await this.settingsRepository.findOne({
+      where: { key: 'dinamik_profit_margin' },
+    });
+    const basbuğMargin = await this.settingsRepository.findOne({
+      where: { key: 'basbug_profit_margin' },
+    });
+    const dogusMargin = await this.settingsRepository.findOne({
+      where: { key: 'dogus_profit_margin' },
+    });
+
+    return {
+      dinamik_margin: dinamikMargin ? parseFloat(dinamikMargin.value) : 20,
+      basbug_margin: basbuğMargin ? parseFloat(basbuğMargin.value) : 25,
+      dogus_margin: dogusMargin ? parseFloat(dogusMargin.value) : 22,
+    };
+  }
+
+  /**
+   * Update supplier-specific profit margins
+   */
+  async updateSupplierProfitMargins(margins: {
+    dinamik_margin?: number;
+    basbug_margin?: number;
+    dogus_margin?: number;
+  }) {
+    const updates: string[] = [];
+
+    if (margins.dinamik_margin !== undefined) {
+      await this.updateSetting('dinamik_profit_margin', {
+        value: margins.dinamik_margin.toString(),
+      });
+      updates.push(`Dinamik: ${margins.dinamik_margin}%`);
+    }
+
+    if (margins.basbug_margin !== undefined) {
+      await this.updateSetting('basbug_profit_margin', {
+        value: margins.basbug_margin.toString(),
+      });
+      updates.push(`Başbuğ: ${margins.basbug_margin}%`);
+    }
+
+    if (margins.dogus_margin !== undefined) {
+      await this.updateSetting('dogus_profit_margin', {
+        value: margins.dogus_margin.toString(),
+      });
+      updates.push(`Doğuş: ${margins.dogus_margin}%`);
+    }
+
+    this.logger.log(`Updated supplier profit margins: ${updates.join(', ')}`);
+
+    return {
+      success: true,
+      updated_margins: margins,
+      message: `Updated ${updates.length} supplier margin(s)`,
+    };
+  }
+
+  /**
+   * Get profit margin for specific supplier
+   */
+  async getSupplierProfitMargin(supplierName: 'Dinamik' | 'Başbuğ' | 'Doğuş'): Promise<number> {
+    const keyMap = {
+      'Dinamik': 'dinamik_profit_margin',
+      'Başbuğ': 'basbug_profit_margin',
+      'Doğuş': 'dogus_profit_margin',
+    };
+
+    const defaultMargins = {
+      'Dinamik': 20,
+      'Başbuğ': 25,
+      'Doğuş': 22,
+    };
+
+    const setting = await this.settingsRepository.findOne({
+      where: { key: keyMap[supplierName] },
+    });
+
+    return setting ? parseFloat(setting.value) : defaultMargins[supplierName];
+  }
+
+  /**
    * Get WooCommerce settings
    */
   async getWooCommerceSettings() {
@@ -257,7 +360,8 @@ export class SettingsService {
 
     if (
       !wooSettings.woocommerce_api_url ||
-      !wooSettings.woocommerce_consumer_key
+      !wooSettings.woocommerce_consumer_key ||
+      !wooSettings.woocommerce_consumer_secret
     ) {
       return {
         success: false,
@@ -265,14 +369,101 @@ export class SettingsService {
       };
     }
 
-    // Mock connection test - in real implementation, this would make an actual API call
-    const isConnected = Math.random() > 0.2; // 80% success rate for demo
+    try {
+      const axios = require('axios');
+      const https = require('https');
+      
+      // Create axios instance with SSL configuration for HTTPS sites
+      const axiosInstance = axios.create({
+        timeout: 10000,
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false, // Allow self-signed certificates
+          secureProtocol: 'TLSv1_2_method'
+        })
+      });
 
-    return {
-      success: isConnected,
-      message: isConnected ? 'Connection successful' : 'Connection failed',
-      api_url: wooSettings.woocommerce_api_url,
-    };
+      // Test connection with WooCommerce API
+      const apiUrl = wooSettings.woocommerce_api_url.replace(/\/$/, '');
+      const testUrl = `${apiUrl}/wp-json/wc/v3/system_status`;
+      
+      const response = await axiosInstance.get(testUrl, {
+        auth: {
+          username: wooSettings.woocommerce_consumer_key,
+          password: wooSettings.woocommerce_consumer_secret
+        },
+        headers: {
+          'User-Agent': 'OtoParcaPanel/1.0',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.status === 200) {
+        return {
+          success: true,
+          message: 'WooCommerce connection successful',
+          api_url: wooSettings.woocommerce_api_url,
+          version: response.data?.environment?.version || 'Unknown'
+        };
+      } else {
+        return {
+          success: false,
+          message: `Connection failed with status: ${response.status}`,
+          api_url: wooSettings.woocommerce_api_url
+        };
+      }
+    } catch (error) {
+      // Try alternative endpoint if system_status fails
+      try {
+        const axios = require('axios');
+        const https = require('https');
+        
+        const axiosInstance = axios.create({
+          timeout: 10000,
+          httpsAgent: new https.Agent({
+            rejectUnauthorized: false,
+            secureProtocol: 'TLSv1_2_method'
+          })
+        });
+
+        const apiUrl = wooSettings.woocommerce_api_url.replace(/\/$/, '');
+        const testUrl = `${apiUrl}/wp-json/wc/v3/products`;
+        
+        const response = await axiosInstance.get(testUrl, {
+          auth: {
+            username: wooSettings.woocommerce_consumer_key,
+            password: wooSettings.woocommerce_consumer_secret
+          },
+          params: {
+            per_page: 1
+          },
+          headers: {
+            'User-Agent': 'OtoParcaPanel/1.0',
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 200) {
+          return {
+            success: true,
+            message: 'WooCommerce connection successful (products endpoint)',
+            api_url: wooSettings.woocommerce_api_url
+          };
+        }
+      } catch (altError) {
+        // Both endpoints failed
+      }
+
+      return {
+        success: false,
+        message: `Connection failed: ${error.response?.data?.message || error.message}`,
+        api_url: wooSettings.woocommerce_api_url,
+        error_details: {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          code: error.code
+        }
+      };
+    }
   }
 
   /**

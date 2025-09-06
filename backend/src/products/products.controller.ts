@@ -11,6 +11,7 @@ import {
   HttpException,
   HttpStatus,
   ParseIntPipe,
+  Logger,
 } from '@nestjs/common';
 import { ProductsService, ProductFilter } from './products.service';
 import { ProductSyncService } from './product-sync.service';
@@ -29,6 +30,8 @@ import {
 @Controller('products')
 @UseGuards(JwtAuthGuard)
 export class ProductsController {
+  private readonly logger = new Logger(ProductsController.name);
+
   constructor(
     private readonly productsService: ProductsService,
     private readonly productSyncService: ProductSyncService,
@@ -55,7 +58,12 @@ export class ProductsController {
   ) {
     try {
       const pageNum = parseInt(page) || 1;
-      const limitNum = parseInt(limit) || 20;
+      let limitNum = parseInt(limit) || 20;
+      
+      // Eğer limit çok yüksekse (10000+), tüm ürünleri getir
+      if (limitNum >= 10000) {
+        limitNum = 999999; // Çok yüksek bir değer - tüm ürünleri getir
+      }
 
       const filters: ProductFilter = {
         search,
@@ -158,12 +166,77 @@ export class ProductsController {
   }
 
   /**
+   * Push local prices to WooCommerce
+   */
+  @Post('push-to-woocommerce')
+  async pushToWooCommerce(
+    @Body() options: { productIds?: number[]; batchSize?: number } = {},
+  ) {
+    const startTime = Date.now();
+    
+    try {
+      this.logger.log(`🚀 Starting WooCommerce sync with options: ${JSON.stringify(options)}`);
+      
+      const result = await this.productsService.pushPricesToWooCommerce(options);
+      const duration = Date.now() - startTime;
+      
+      let message: string;
+      let statusCode = HttpStatus.OK;
+      
+      if (result.success) {
+        message = `🎉 Successfully pushed ${result.updatedCount} products to WooCommerce in ${duration}ms`;
+        this.logger.log(message);
+      } else if (result.updatedCount > 0 && result.errorCount > 0) {
+        message = `⚠️ Push completed with mixed results: ${result.updatedCount} successful, ${result.errorCount} failed in ${duration}ms`;
+        statusCode = HttpStatus.PARTIAL_CONTENT;
+        this.logger.warn(message);
+      } else if (result.errorCount > 0) {
+        message = `❌ Push failed: ${result.errorCount} errors occurred in ${duration}ms`;
+        statusCode = HttpStatus.BAD_REQUEST;
+        this.logger.error(message);
+      } else {
+        message = `ℹ️ No products were processed in ${duration}ms`;
+        this.logger.log(message);
+      }
+      
+      return {
+        success: result.success,
+        message,
+        data: {
+          ...result,
+          duration: `${duration}ms`,
+          processedAt: new Date().toISOString(),
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(`💥 WooCommerce sync failed after ${duration}ms:`, {
+        error: error.message,
+        stack: error.stack,
+        options
+      });
+      
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to push prices to WooCommerce: ${error.message}`,
+          error: error.message,
+          duration: `${duration}ms`,
+          timestamp: new Date().toISOString(),
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Get products that need sync
    */
   @Get('needs-sync')
-  async getProductsNeedingSync(@Query('limit') limit: string = '100') {
+  async getProductsNeedingSync(@Query('limit') limit: string = '1000') {
     try {
-      const limitNum = parseInt(limit) || 100;
+      const limitNum = parseInt(limit) || 1000;
       const products =
         await this.productSyncService.getProductsNeedingSync(limitNum);
 
@@ -184,6 +257,40 @@ export class ProductsController {
       );
     }
   }
+
+
+
+  /**
+   * Update supplier tags for multiple products
+   */
+  @Post('bulk/update-tags')
+  @Public()
+  async bulkUpdateSupplierTags(
+    @Body() data: { productIds?: number[] } = {},
+  ) {
+    try {
+      const result = await this.productsService.bulkUpdateSupplierTags(
+        data.productIds,
+      );
+      return {
+        success: true,
+        message: `Supplier tags updated for ${result.updatedCount} products`,
+        data: result,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to bulk update supplier tags',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+
 
   /**
    * Get a single product by ID
@@ -258,34 +365,7 @@ export class ProductsController {
     }
   }
 
-  /**
-   * Get update history for a product
-   */
-  @Get(':id/history')
-  async getUpdateHistory(
-    @Param('id', ParseIntPipe) id: number,
-    @Query('limit') limit: string = '50',
-  ) {
-    try {
-      const limitNum = parseInt(limit) || 50;
-      const history = await this.productsService.getUpdateHistory(id, limitNum);
-      return {
-        success: true,
-        data: history,
-        count: history.length,
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: `Failed to fetch update history for product ${id}`,
-          error: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
+
 
   /**
    * Update product stock
@@ -510,6 +590,122 @@ export class ProductsController {
   }
 
   /**
+   * Update supplier tags for a single product
+   */
+  @Post(':id/update-tags')
+  @Public()
+  async updateSupplierTags(@Param('id', ParseIntPipe) id: number) {
+    try {
+      const result = await this.productsService.updateSupplierTags(id);
+      return {
+        success: true,
+        message: 'Supplier tags updated successfully',
+        data: result,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to update supplier tags',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Test WooCommerce sync for a specific product
+   */
+  @Post(':id/test-woo-sync')
+  @Public()
+  async testWooCommerceSync(@Param('id', ParseIntPipe) id: number) {
+    try {
+      const product = await this.productsService.findOne(id);
+      if (!product) {
+        throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+      }
+
+      if (!product.woo_product_id) {
+        throw new HttpException(
+          'Product has no WooCommerce ID',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Force sync to WooCommerce
+      await this.productsService.syncSingleProductToWooCommerce(product);
+
+      return {
+        success: true,
+        message: 'Product successfully synced to WooCommerce',
+        data: {
+          product_id: product.id,
+          woo_product_id: product.woo_product_id,
+          regular_price: product.regular_price,
+          sale_price: product.sale_price,
+          stock_quantity: product.stok_miktari,
+          stock_status: product.stock_status,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to sync product to WooCommerce',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Sync single product
+   */
+  @Post('sync-single')
+  async syncSingleProduct(
+    @Body() data: { productId: number },
+  ) {
+    try {
+      const product = await this.productsService.findOne(data.productId);
+      
+      if (!product) {
+        throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+      }
+
+      if (!product.woo_product_id) {
+        throw new HttpException('Product has no WooCommerce ID', HttpStatus.BAD_REQUEST);
+      }
+
+      // Sync the product to WooCommerce
+      await this.productsService.syncSingleProductToWooCommerce(product);
+      
+      return {
+        success: true,
+        message: `Product ${product.urun_adi} synced successfully`,
+        data: {
+          productId: product.id,
+          productName: product.urun_adi,
+          wooProductId: product.woo_product_id
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: `Failed to sync product: ${error.message}`,
+          error: error.message,
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Bulk sync products
    */
   @Post('bulk/sync')
@@ -622,7 +818,7 @@ export class ProductsController {
   }
 
   /**
-   * Update a product
+   * Update a product with comprehensive validation and error handling
    */
   @Put(':id')
   async updateProduct(
@@ -630,37 +826,178 @@ export class ProductsController {
     @Body() updateData: {
       urun_adi: string;
       stok_kodu: string;
-      fiyat: number;
-      stok_miktari: number;
+      fiyat: number | string;
+      stok_miktari: number | string;
       stock_status: 'instock' | 'outofstock' | 'onbackorder';
-      description?: string;
-      short_description?: string;
-      regular_price?: number;
-      sale_price?: number;
+      regular_price?: number | string;
+      sale_price?: number | string;
     },
   ) {
     try {
-      const updatedProduct = await this.productsService.updateProduct(id, updateData);
+      this.logger.log(`Received product update request for ID: ${id}`);
+      this.logger.debug(`Update data:`, updateData);
+      
+      // Validate required fields
+      if (!updateData.urun_adi || updateData.urun_adi.trim().length === 0) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Product name is required',
+            field: 'urun_adi',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      
+      if (!updateData.stok_kodu || updateData.stok_kodu.trim().length === 0) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Stock code is required',
+            field: 'stok_kodu',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      
+      // Convert and validate numeric values
+      const processedData = {
+        urun_adi: updateData.urun_adi.trim(),
+        stok_kodu: updateData.stok_kodu.trim(),
+        regular_price: this.parseAndValidateNumber(updateData.regular_price || updateData.fiyat, 'regular_price', 'Regular price'),
+        stok_miktari: this.parseAndValidateNumber(updateData.stok_miktari, 'stok_miktari', 'Stock quantity'),
+        stock_status: updateData.stock_status,
+        sale_price: updateData.sale_price !== undefined ? 
+          this.parseAndValidateNumber(updateData.sale_price, 'sale_price', 'Sale price', false) : undefined,
+      };
+      
+      // Validate stock status
+      if (!['instock', 'outofstock', 'onbackorder'].includes(processedData.stock_status)) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Invalid stock status. Must be one of: instock, outofstock, onbackorder',
+            field: 'stock_status',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      
+      this.logger.log(`Processed data for product ${id}:`, processedData);
+      
+      // Update the product
+      const updatedProduct = await this.productsService.updateProduct(id, processedData);
+      
+      this.logger.log(`Product ${id} updated successfully`);
+      
       return {
         success: true,
         message: 'Product updated successfully',
-        data: updatedProduct,
+        data: {
+          id: updatedProduct.id,
+          urun_adi: updatedProduct.urun_adi,
+          stok_kodu: updatedProduct.stok_kodu,
+          regular_price: updatedProduct.regular_price,
+          stok_miktari: updatedProduct.stok_miktari,
+          stock_status: updatedProduct.stock_status,
+          sale_price: updatedProduct.sale_price,
+          sync_required: updatedProduct.sync_required,
+          last_sync_date: updatedProduct.last_sync_date,
+          updated_at: updatedProduct.updated_at,
+        },
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
+      this.logger.error(`Failed to update product ${id}:`, error.message);
+      
+      // If it's already an HttpException, re-throw it
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      // Handle specific error types
+      if (error.message.includes('not found')) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Product with ID ${id} not found`,
+            error: error.message,
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      
+      if (error.message.includes('validation') || error.message.includes('required')) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Validation error',
+            error: error.message,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      
+      // Generic server error
       throw new HttpException(
         {
           success: false,
           message: `Failed to update product ${id}`,
           error: error.message,
         },
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
+  
+  /**
+   * Parse and validate numeric values
+   */
+  private parseAndValidateNumber(value: number | string, fieldName: string, displayName: string, required: boolean = true): number {
+    if ((value === undefined || value === null || value === '') && !required) {
+      return 0;
+    }
+    
+    let numValue: number;
+    
+    if (typeof value === 'string') {
+      numValue = parseFloat(value);
+    } else {
+      numValue = value;
+    }
+    
+    if (isNaN(numValue)) {
+      throw new HttpException(
+        {
+          success: false,
+          message: `${displayName} must be a valid number`,
+          field: fieldName,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
+    if (numValue < 0) {
+      throw new HttpException(
+        {
+          success: false,
+          message: `${displayName} cannot be negative`,
+          field: fieldName,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
+    return numValue;
+  }
 
   /**
-   * Soft delete a product
+   * Bulk sync products
+   */
+  @Post('bulk/sync')
+
+  /**
+   * Hard delete a product
    */
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
@@ -679,6 +1016,99 @@ export class ProductsController {
           error: error.message,
         },
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+
+
+  /**
+   * Update supplier data from scraper
+   */
+  @Post('update-supplier-data')
+  @Public()
+  async updateSupplierData(
+    @Body()
+    updateData: {
+      productId: number;
+      supplier: 'Dinamik' | 'Başbuğ' | 'Doğuş';
+      price: number;
+      stock: number;
+      stockStatus: 'instock' | 'outofstock' | 'onbackorder';
+    },
+  ) {
+    try {
+      const { productId, supplier, price, stock, stockStatus } = updateData;
+
+      // Validate input data
+      if (!productId || !supplier || typeof price !== 'number' || typeof stock !== 'number') {
+        throw new HttpException('Invalid input data', HttpStatus.BAD_REQUEST);
+      }
+
+      if (!['Dinamik', 'Başbuğ', 'Doğuş'].includes(supplier)) {
+        throw new HttpException('Invalid supplier', HttpStatus.BAD_REQUEST);
+      }
+
+      // Update supplier price using existing service method
+      const updatedSupplierPrice = await this.productsService.updateSupplierPrice(
+        productId,
+        supplier,
+        price,
+        stock,
+        stockStatus,
+      );
+
+      return {
+        success: true,
+        message: 'Supplier data updated successfully',
+        data: updatedSupplierPrice,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`Failed to update supplier data: ${error.message}`);
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to update supplier data',
+          error: error.message,
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+
+  
+
+
+  /**
+   * Delete all products permanently
+   */
+  @Post('delete-all')
+  async deleteAllProducts() {
+    try {
+      this.logger.log('🗑️ Starting to delete all products...');
+      const result = await this.productsService.deleteAllProducts();
+      
+      this.logger.log(`✅ Delete all completed: ${result.totalDeleted} products deleted`);
+      
+      return {
+        success: result.success,
+        message: result.message,
+        data: {
+          totalDeleted: result.totalDeleted,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error('❌ Failed to delete all products:', error.message);
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to delete all products',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

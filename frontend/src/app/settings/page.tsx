@@ -33,7 +33,7 @@ interface SystemSettings {
   default_profit_margin: number;
   auto_sync_enabled: boolean;
   sync_interval_minutes: number;
-  woocommerce_url: string;
+  woocommerce_api_url: string;
   woocommerce_consumer_key: string;
   woocommerce_consumer_secret: string;
   python_scraper_api_url: string;
@@ -49,15 +49,15 @@ interface ProfitMargins {
 
 export default function SettingsPage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
-    default_profit_margin: 20,
+    default_profit_margin: 15,
     auto_sync_enabled: true,
     sync_interval_minutes: 60,
-    woocommerce_url: '',
+    woocommerce_api_url: '',
     woocommerce_consumer_key: '',
     woocommerce_consumer_secret: '',
     python_scraper_api_url: 'http://localhost:8000',
     min_stock_threshold: 5,
-    max_price_change_percentage: 50,
+    max_price_change_percentage: 20,
   });
 
   const [profitMargins, setProfitMargins] = useState<ProfitMargins>({
@@ -66,7 +66,8 @@ export default function SettingsPage() {
     dogus_margin: 22,
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [activeTab, setActiveTab] = useState('general');
@@ -78,23 +79,44 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const [settingsResponse, marginsResponse] = await Promise.all([
-        fetch('/api/settings'),
-        fetch('/api/settings/profit-margins/current')
-      ]);
-
-      if (settingsResponse.ok) {
-        const settingsData = await settingsResponse.json();
-        const settingsMap = settingsData.data.reduce((acc: any, setting: any) => {
-          acc[setting.key] = setting.parsed_value;
-          return acc;
-        }, {});
-        setSystemSettings(prev => ({ ...prev, ...settingsMap }));
+      
+      // Get token from storage
+      const token = sessionStorage.getItem('auth_token') || document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      
+      // Fetch general settings
+      const response = await fetch('/api/settings', {
+        headers,
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Backend returns an object, not an array
+          setSystemSettings(prev => ({ ...prev, ...data.data }));
+        }
       }
 
+      // Fetch supplier profit margins
+      const marginsResponse = await fetch('/api/settings/supplier-profit-margins', {
+        headers,
+      });
+      
       if (marginsResponse.ok) {
         const marginsData = await marginsResponse.json();
-        setProfitMargins(marginsData.data);
+        if (marginsData.success && marginsData.data) {
+          setProfitMargins(marginsData.data);
+        }
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -106,15 +128,32 @@ export default function SettingsPage() {
 
   const handleSaveSettings = async () => {
     try {
-      setLoading(true);
+      setSaving(true);
+      
+      // Get token from storage
+      const token = sessionStorage.getItem('auth_token') || document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      
       const promises = [];
 
-      // Save system settings
-      for (const [key, value] of Object.entries(systemSettings)) {
+      // Save system settings (excluding WooCommerce settings)
+      const { woocommerce_api_url, woocommerce_consumer_key, woocommerce_consumer_secret, ...otherSettings } = systemSettings;
+      
+      for (const [key, value] of Object.entries(otherSettings)) {
         promises.push(
           fetch(`/api/settings/${key}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ value }),
           })
         );
@@ -126,29 +165,92 @@ export default function SettingsPage() {
       console.error('Error saving settings:', error);
       toast.error('Ayarlar kaydedilirken hata oluştu');
     } finally {
-      setLoading(false);
+      setSaving(false);
+    }
+  };
+
+  const handleSaveWooCommerceSettings = async () => {
+    try {
+      setSaving(true);
+      
+      // Get token from storage
+      const token = sessionStorage.getItem('auth_token') || document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      
+      // Save WooCommerce settings using the new endpoint
+      const response = await fetch('/api/settings/woocommerce/config', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          woocommerce_api_url: systemSettings.woocommerce_api_url,
+          woocommerce_consumer_key: systemSettings.woocommerce_consumer_key,
+          woocommerce_consumer_secret: systemSettings.woocommerce_consumer_secret,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success('WooCommerce ayarları başarıyla kaydedildi');
+        console.log('WooCommerce settings saved:', result);
+      } else {
+        const error = await response.json();
+        throw new Error(error.message || 'WooCommerce ayarları kaydedilemedi');
+      }
+    } catch (error) {
+      console.error('Error saving WooCommerce settings:', error);
+      toast.error('WooCommerce ayarları kaydedilirken hata oluştu');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleSaveProfitMargins = async () => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/settings/profit-margins', {
+      setSaving(true);
+      
+      // Get token from storage
+      const token = sessionStorage.getItem('auth_token') || document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      
+      const response = await fetch('/api/settings/supplier-profit-margins', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(profitMargins),
       });
 
       if (response.ok) {
-        toast.success('Kar marjı ayarları kaydedildi');
+        const result = await response.json();
+        toast.success('Tedarikçi kar marjları başarıyla kaydedildi');
+        console.log('Updated margins:', result.data);
       } else {
-        toast.error('Kar marjı ayarları kaydedilemedi');
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Kar marjı ayarları kaydedilemedi');
       }
     } catch (error) {
       console.error('Error saving profit margins:', error);
       toast.error('Kar marjı ayarları kaydedilirken hata oluştu');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -157,8 +259,23 @@ export default function SettingsPage() {
       setTestingConnection(true);
       setConnectionStatus('idle');
       
+      // Get token from storage
+      const token = sessionStorage.getItem('auth_token') || document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/settings/woocommerce/test-connection', {
         method: 'POST',
+        headers,
       });
 
       if (response.ok) {
@@ -190,14 +307,25 @@ export default function SettingsPage() {
         fetchSettings();
       } else {
         toast.error('Ayarlar sıfırlanamadı');
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error resetting settings:', error);
       toast.error('Ayarlar sıfırlanırken hata oluştu');
-    } finally {
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary-600" />
+          <p className="text-gray-600 dark:text-gray-400">Ayarlar yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -277,7 +405,7 @@ export default function SettingsPage() {
                       onChange={(e) => setSystemSettings(prev => ({ ...prev, default_profit_margin: Number(e.target.value) }))}
                       min="0"
                       max="100"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                      className="w-full px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 transition-colors"
                     />
                   </div>
                   <div className="space-y-2">
@@ -287,7 +415,7 @@ export default function SettingsPage() {
                       value={systemSettings.sync_interval_minutes}
                       onChange={(e) => setSystemSettings(prev => ({ ...prev, sync_interval_minutes: Number(e.target.value) }))}
                       min="1"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                      className="w-full px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 transition-colors"
                     />
                   </div>
                   <div className="space-y-2">
@@ -335,7 +463,7 @@ export default function SettingsPage() {
                 <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={handleSaveSettings}
-                    disabled={loading}
+                    disabled={saving}
                     className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                   >
                     <Save className="h-4 w-4" />
@@ -392,7 +520,7 @@ export default function SettingsPage() {
                 <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={handleSaveProfitMargins}
-                    disabled={loading}
+                    disabled={saving}
                     className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                   >
                     <Save className="h-4 w-4" />
@@ -416,8 +544,8 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">WooCommerce Site URL</label>
                     <input
                       type="text"
-                      value={systemSettings.woocommerce_url}
-                      onChange={(e) => setSystemSettings(prev => ({ ...prev, woocommerce_url: e.target.value }))}
+                      value={systemSettings.woocommerce_api_url}
+                      onChange={(e) => setSystemSettings(prev => ({ ...prev, woocommerce_api_url: e.target.value }))}
                       placeholder="https://yourstore.com"
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
                     />
@@ -471,8 +599,8 @@ export default function SettingsPage() {
                 
                 <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={handleSaveSettings}
-                    disabled={loading}
+                    onClick={handleSaveWooCommerceSettings}
+                    disabled={saving}
                     className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                   >
                     <Save className="h-4 w-4" />

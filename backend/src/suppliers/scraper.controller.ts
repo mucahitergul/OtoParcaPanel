@@ -58,15 +58,16 @@ export class ScraperController {
    */
   @Post('update-price')
   async updateSinglePrice(@Body() updateDto: { 
-    product_id: number; 
-    supplier: string; 
-    stok_kodu: string;
-    price?: number;
-    stock_quantity?: number;
-    stock_status?: string;
+    stockCode: string;
+    foundAtSupplier: boolean;
+    price: number;
+    isAvailable: boolean;
+    supplier: string;
+    stock: number;
+    productId: number;
   }) {
     try {
-      const result = await this.suppliersService.updateSinglePrice(updateDto);
+      const result = await this.suppliersService.saveScraperData(updateDto);
       return {
         success: true,
         data: result,
@@ -119,9 +120,10 @@ export class ScraperController {
   async requestPriceUpdate(@Body() requestDto: {
     stockCode: string;
     supplier: string;
+    productId?: number;
   }) {
     try {
-      const { stockCode, supplier } = requestDto;
+      const { stockCode, supplier, productId } = requestDto;
       
       if (!stockCode || !supplier) {
         throw new HttpException(
@@ -133,8 +135,40 @@ export class ScraperController {
         );
       }
 
+      // Determine scraper port based on supplier
+      let scraperPort = 5001; // Default port
+      if (supplier === 'basbug') {
+        scraperPort = 5002;
+      }
+      
+      // First check CAPTCHA status for Başbuğ
+      if (supplier === 'basbug') {
+        try {
+          const captchaResponse = await axios.get(`http://localhost:${scraperPort}/captcha-status`, {
+            timeout: 5000,
+          });
+          
+          if ((captchaResponse.data as any).captcha_waiting) {
+            throw new HttpException(
+              {
+                success: false,
+                message: 'Scraper is waiting for CAPTCHA resolution',
+                captcha_waiting: true,
+                supplier: supplier,
+              },
+              HttpStatus.LOCKED, // 423 Locked
+            );
+          }
+        } catch (captchaError) {
+          if (captchaError.status === HttpStatus.LOCKED) {
+            throw captchaError; // Re-throw CAPTCHA waiting error
+          }
+          // If CAPTCHA status check fails, continue with scraping (might be connection issue)
+        }
+      }
+
       // Call scraper bot API
-      const scraperResponse = await axios.post('http://localhost:5000/scrape', {
+      const scraperResponse = await axios.post(`http://localhost:${scraperPort}/scrape`, {
         stockCode,
         supplier,
       }, {
@@ -144,6 +178,24 @@ export class ScraperController {
           'Accept': 'application/json',
         },
       });
+
+      // If productId is provided and scraper was successful, save to database
+      if (productId && scraperResponse.data && (scraperResponse.data as any).success) {
+        try {
+          const scrapedData = scraperResponse.data as any;
+          await this.suppliersService.saveScraperData({
+            productId,
+            stockCode,
+            supplier,
+            price: scrapedData.price,
+            stock: scrapedData.stock,
+            isAvailable: scrapedData.isAvailable,
+          });
+        } catch (dbError) {
+          // Log database error but don't fail the request
+          console.error('Failed to save scraper data to database:', dbError);
+        }
+      }
 
       return {
         success: true,
@@ -166,6 +218,154 @@ export class ScraperController {
         {
           success: false,
           message: 'Failed to request price update from scraper',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Check CAPTCHA status for a specific supplier
+   */
+  @Get('captcha-status/:supplier')
+  async getCaptchaStatus(@Param('supplier') supplier: string) {
+    try {
+      // Determine scraper port based on supplier
+      let scraperPort = 5001; // Default port
+      if (supplier === 'basbug') {
+        scraperPort = 5002;
+      }
+      
+      const response = await axios.get(`http://localhost:${scraperPort}/captcha-status`, {
+        timeout: 5000,
+      });
+      
+      return {
+        success: true,
+        data: response.data,
+        supplier: supplier,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to get CAPTCHA status',
+          error: error.message,
+          supplier: supplier,
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  /**
+   * Mark CAPTCHA as resolved for a specific supplier
+   */
+  @Post('resolve-captcha/:supplier')
+  async resolveCaptcha(@Param('supplier') supplier: string) {
+    try {
+      // Determine scraper port based on supplier
+      let scraperPort = 5001; // Default port
+      if (supplier === 'basbug') {
+        scraperPort = 5002;
+      }
+      
+      const response = await axios.post(`http://localhost:${scraperPort}/continue-captcha`, {}, {
+        timeout: 5000,
+      });
+      
+      return {
+        success: true,
+        data: response.data,
+        supplier: supplier,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to resolve CAPTCHA',
+          error: error.message,
+          supplier: supplier,
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  /**
+   * Register scraper bot
+   */
+  @Post('register')
+  async registerScraper(@Body() registrationData: {
+    name: string;
+    ipAddress: string;
+    port: number;
+    capabilities: string[];
+  }) {
+    try {
+      const { name, ipAddress, port, capabilities } = registrationData;
+      
+      if (!name || !ipAddress || !port) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Name, IP address and port are required',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Generate a unique scraper ID
+      const scraperId = `scraper_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // In a real implementation, you would save this to database
+      // For now, we'll just return success with the generated ID
+      
+      return {
+        success: true,
+        scraperId,
+        message: 'Scraper registered successfully',
+        registeredAt: new Date().toISOString(),
+        data: {
+          name,
+          ipAddress,
+          port,
+          capabilities,
+        },
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to register scraper',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Heartbeat endpoint for scraper
+   */
+  @Post('heartbeat/:scraperId')
+  async scraperHeartbeat(@Param('scraperId') scraperId: string) {
+    try {
+      // In a real implementation, you would update the last seen timestamp in database
+      return {
+        success: true,
+        message: 'Heartbeat received',
+        scraperId,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to process heartbeat',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

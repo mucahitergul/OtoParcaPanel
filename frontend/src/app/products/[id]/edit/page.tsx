@@ -25,8 +25,7 @@ interface Product {
   stok_kodu: string;
   urun_adi: string;
   stok_miktari: number;
-  fiyat: number;
-  regular_price?: number;
+  regular_price: number;
   sale_price?: number;
   stock_status: 'instock' | 'outofstock' | 'onbackorder';
   categories?: Array<{ id: number; name: string; slug: string }>;
@@ -47,12 +46,9 @@ interface Product {
 interface ProductFormData {
   urun_adi: string;
   stok_kodu: string;
-  fiyat: number;
   stok_miktari: number;
   stock_status: 'instock' | 'outofstock' | 'onbackorder';
-  description?: string;
-  short_description?: string;
-  regular_price?: number;
+  regular_price: number;
   sale_price?: number;
 }
 
@@ -67,11 +63,8 @@ export default function EditProductPage() {
   const [formData, setFormData] = useState<ProductFormData>({
     urun_adi: '',
     stok_kodu: '',
-    fiyat: 0,
     stok_miktari: 0,
     stock_status: 'instock',
-    description: '',
-    short_description: '',
     regular_price: 0,
     sale_price: 0,
   });
@@ -87,11 +80,8 @@ export default function EditProductPage() {
         setFormData({
           urun_adi: productData.urun_adi || '',
           stok_kodu: productData.stok_kodu || '',
-          fiyat: productData.fiyat || 0,
           stok_miktari: productData.stok_miktari || 0,
           stock_status: productData.stock_status || 'instock',
-          description: productData.description || '',
-          short_description: productData.short_description || '',
           regular_price: productData.regular_price || 0,
           sale_price: productData.sale_price || 0,
         });
@@ -115,8 +105,8 @@ export default function EditProductPage() {
       newErrors.stok_kodu = 'Stok kodu gereklidir';
     }
 
-    if (formData.fiyat <= 0) {
-      newErrors.fiyat = 'Fiyat 0\'dan büyük olmalıdır';
+    if (formData.regular_price <= 0) {
+      newErrors.regular_price = 'Fiyat 0\'dan büyük olmalıdır';
     }
 
     if (formData.stok_miktari < 0) {
@@ -273,16 +263,37 @@ export default function EditProductPage() {
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.fiyat}
-                  onChange={(e) => handleInputChange('fiyat', parseFloat(e.target.value) || 0)}
+                  value={formData.regular_price || 0}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    handleInputChange('regular_price', value);
+                  }}
                   className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${
-                    errors.fiyat ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    errors.regular_price ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
                   placeholder="0.00"
                 />
-                {errors.fiyat && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.fiyat}</p>
+                {errors.regular_price && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.regular_price}</p>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  İndirimli Fiyat (₺)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.sale_price || 0}
+                  onChange={(e) => handleInputChange('sale_price', parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                  placeholder="0.00"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  İndirimli fiyat. Boş bırakılırsa indirim uygulanmaz.
+                </p>
               </div>
 
               <div>
@@ -321,81 +332,9 @@ export default function EditProductPage() {
             </div>
           </div>
 
-          {/* Descriptions */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <FileText className="h-5 w-5 text-primary-600" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Açıklamalar</h2>
-            </div>
 
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Kısa Açıklama
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.short_description}
-                  onChange={(e) => handleInputChange('short_description', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
-                  placeholder="Ürünün kısa açıklamasını girin"
-                />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Detaylı Açıklama
-                </label>
-                <textarea
-                  rows={6}
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
-                  placeholder="Ürünün detaylı açıklamasını girin"
-                />
-              </div>
-            </div>
-          </div>
 
-          {/* Pricing */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <DollarSign className="h-5 w-5 text-primary-600" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Fiyatlandırma</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Normal Fiyat (₺)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.regular_price}
-                  onChange={(e) => handleInputChange('regular_price', parseFloat(e.target.value) || 0)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  İndirimli Fiyat (₺)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.sale_price}
-                  onChange={(e) => handleInputChange('sale_price', parseFloat(e.target.value) || 0)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
 
 
 

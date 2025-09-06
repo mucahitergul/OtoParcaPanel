@@ -23,8 +23,8 @@ import { SystemModule } from './system/system.module';
 import { User } from './entities/user.entity';
 import { Product } from './entities/product.entity';
 import { SupplierPrice } from './entities/supplier-price.entity';
-import { UpdateHistory } from './entities/update-history.entity';
-import { PriceHistory } from './entities/price-history.entity';
+
+
 import { StockHistory } from './entities/stock-history.entity';
 import { Settings } from './entities/settings.entity';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
@@ -41,17 +41,15 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('DATABASE_HOST') || 'localhost',
-        port: configService.get('DATABASE_PORT') || 5432,
-        username: configService.get('DATABASE_USERNAME') || 'postgres',
-        password: configService.get('DATABASE_PASSWORD') || 'mucahit01.',
-        database: configService.get('DATABASE_NAME') || 'oto_parca_panel',
+        host: configService.get('DB_HOST') || 'localhost',
+        port: configService.get('DB_PORT') || 5432,
+        username: configService.get('DB_USER') || 'postgres',
+        password: configService.get('DB_PASS') || 'mucahit01.',
+        database: configService.get('DB_NAME') || 'carapp',
         entities: [
           User,
           Product,
           SupplierPrice,
-          UpdateHistory,
-          PriceHistory,
           StockHistory,
           Settings,
         ],

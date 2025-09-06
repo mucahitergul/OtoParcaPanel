@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -6,7 +6,7 @@ import {
   WooCommerceProduct,
 } from '../woocommerce/woocommerce.service';
 import { Product } from '../entities/product.entity';
-import { UpdateHistory } from '../entities/update-history.entity';
+
 
 export interface SyncResult {
   success: boolean;
@@ -23,17 +23,40 @@ export interface SyncOptions {
   maxRetries?: number;
 }
 
+export interface SyncProgress {
+  syncId: string;
+  status: 'running' | 'completed' | 'failed' | 'cancelled' | 'paused';
+  totalProducts: number;
+  processedProducts: number;
+  successfulProducts: number;
+  failedProducts: number;
+  skippedProducts: number;
+  currentProduct?: string;
+  startTime: Date;
+  endTime?: Date;
+  errors: string[];
+  estimatedTimeRemaining?: number;
+}
+
 @Injectable()
 export class ProductSyncService {
   private readonly logger = new Logger(ProductSyncService.name);
+  private activeSyncs = new Map<string, SyncProgress>();
 
   constructor(
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
-    @InjectRepository(UpdateHistory)
-    private updateHistoryRepository: Repository<UpdateHistory>,
+
     private wooCommerceService: WooCommerceService,
   ) {}
+  
+  /**
+   * Add a new sync progress to track
+   */
+  addSyncProgress(syncId: string, progress: SyncProgress): void {
+    this.activeSyncs.set(syncId, progress);
+    this.logger.log(`Added sync progress tracking for ${syncId}`);
+  }
 
   /**
    * Sync all products from WooCommerce
@@ -162,6 +185,15 @@ export class ProductSyncService {
         existingProduct = await this.productRepository.findOne({
           where: { stok_kodu: wooProduct.sku },
         });
+        
+        // If found by SKU, update the WooCommerce ID to link them
+        if (existingProduct && !existingProduct.woo_product_id) {
+          existingProduct.woo_product_id = wooProduct.id;
+          await this.productRepository.save(existingProduct);
+          this.logger.log(
+            `Linked existing product ${existingProduct.id} (${existingProduct.stok_kodu}) with WooCommerce ID ${wooProduct.id}`
+          );
+        }
       }
 
       const isNew = !existingProduct;
@@ -170,32 +202,19 @@ export class ProductSyncService {
       if (isNew) {
         // Create new product
         const newProduct = await this.createProductFromWooCommerce(wooProduct);
-        await this.createUpdateHistory(newProduct, 'WooCommerce', 'create', {
-          woo_product_id: wooProduct.id,
-          action: 'created_from_woocommerce',
-        });
+
         return { isNew: true, isUpdated: false, product: newProduct };
       } else if (existingProduct) {
-        // Update existing product if needed
-        if (
-          forceUpdate ||
-          this.shouldUpdateProduct(existingProduct, wooProduct)
-        ) {
-          const updatedProduct = await this.updateProductFromWooCommerce(
-            existingProduct,
-            wooProduct,
-          );
-          isUpdated = true;
-          return { isNew: false, isUpdated: true, product: updatedProduct };
-        }
+        // Skip updating existing products to preserve supplier prices and stock information
+        // Only link the WooCommerce ID if it's missing
+        this.logger.log(
+          `Skipping update for existing product ${existingProduct.id} (${existingProduct.stok_kodu}) to preserve local data`
+        );
         return { isNew: false, isUpdated: false, product: existingProduct };
       } else {
         // This should not happen, but handle it gracefully
         const newProduct = await this.createProductFromWooCommerce(wooProduct);
-        await this.createUpdateHistory(newProduct, 'WooCommerce', 'create', {
-          woo_product_id: wooProduct.id,
-          action: 'created_from_woocommerce_fallback',
-        });
+
         return { isNew: true, isUpdated: false, product: newProduct };
       }
     } catch (error) {
@@ -219,17 +238,20 @@ export class ProductSyncService {
     product.stok_kodu = wooProduct.sku || `WOO-${wooProduct.id}`;
     product.urun_adi = wooProduct.name;
     product.stok_miktari = wooProduct.stock_quantity || 0;
-      product.fiyat = parseFloat(wooProduct.price) || 0;
+    product.regular_price = parseFloat(wooProduct.price) || 0;
     product.regular_price = parseFloat(wooProduct.regular_price) || 0;
     product.sale_price = parseFloat(wooProduct.sale_price) || 0;
     product.manage_stock = wooProduct.manage_stock;
     product.stock_status = wooProduct.stock_status;
     product.categories = wooProduct.categories || [];
     product.images = wooProduct.images || [];
+    // Convert WooCommerce tags to supplier_tags
+    product.supplier_tags = wooProduct.tags ? wooProduct.tags.map(tag => tag.name) : [];
     product.woo_date_created = new Date(wooProduct.date_created);
     product.woo_date_modified = new Date(wooProduct.date_modified);
     product.last_sync_date = new Date();
     product.sync_required = false;
+    product.is_active = true;
 
     return await this.productRepository.save(product);
   }
@@ -241,42 +263,40 @@ export class ProductSyncService {
     existingProduct: Product,
     wooProduct: WooCommerceProduct,
   ): Promise<Product> {
-    const oldPrice = existingProduct.fiyat;
-        const oldStock = existingProduct.stok_miktari;
-    const oldStockStatus = existingProduct.stock_status;
-
-    // Update product fields
-    existingProduct.woo_product_id = wooProduct.id;
+    // Preserve existing price and stock information - only update other fields
+    // This ensures that local panel data takes precedence over WooCommerce data
+    
+    // Update product fields (excluding price and stock)
+    // WooCommerce ID is already set during the linking process, no need to update again
     existingProduct.urun_adi = wooProduct.name;
-    existingProduct.stok_miktari = wooProduct.stock_quantity || 0;
-        existingProduct.fiyat = parseFloat(wooProduct.price) || 0;
-    existingProduct.regular_price = parseFloat(wooProduct.regular_price) || 0;
-    existingProduct.sale_price = parseFloat(wooProduct.sale_price) || 0;
-    existingProduct.manage_stock = wooProduct.manage_stock;
-    existingProduct.stock_status = wooProduct.stock_status;
+    // Keep existing stock and price values - DO NOT update from WooCommerce
+    // existingProduct.stok_miktari = wooProduct.stock_quantity || 0;
+    // existingProduct.regular_price = parseFloat(wooProduct.price) || 0;
+    // existingProduct.sale_price = parseFloat(wooProduct.sale_price) || 0;
+    // existingProduct.manage_stock = wooProduct.manage_stock;
+    // existingProduct.stock_status = wooProduct.stock_status;
+    
     existingProduct.categories = wooProduct.categories || [];
     existingProduct.images = wooProduct.images || [];
+    // Keep existing supplier_tags - DO NOT update from WooCommerce
+    // existingProduct.supplier_tags = wooProduct.tags ? wooProduct.tags.map(tag => tag.name) : [];
     existingProduct.woo_date_modified = new Date(wooProduct.date_modified);
     existingProduct.last_sync_date = new Date();
     existingProduct.sync_required = false;
+    existingProduct.is_active = true;
 
     const updatedProduct = await this.productRepository.save(existingProduct);
 
-    // Create update history
-    await this.createUpdateHistory(updatedProduct, 'WooCommerce', 'sync', {
-      eski_fiyat: oldPrice,
-          yeni_fiyat: updatedProduct.fiyat,
-          eski_stok: oldStock,
-          yeni_stok: updatedProduct.stok_miktari,
-          eski_stok_durumu: oldStockStatus,
-          yeni_stok_durumu: updatedProduct.stock_status,
-    });
+    this.logger.log(
+      `Updated product ${existingProduct.id} from WooCommerce (preserved local price and stock data)`
+    );
 
     return updatedProduct;
   }
 
   /**
    * Check if product should be updated
+   * Note: Price and stock differences are ignored as local data takes precedence
    */
   private shouldUpdateProduct(
     existingProduct: Product,
@@ -295,45 +315,18 @@ export class ProductSyncService {
       return true;
     }
 
-    // Update if significant differences found
-    const priceDiff = Math.abs(
-      existingProduct.fiyat - parseFloat(wooProduct.price),
-    );
-    const stockDiff = Math.abs(
-      existingProduct.stok_miktari - (wooProduct.stock_quantity || 0),
-    );
+    // Check for differences in non-price/stock fields
+    const nameDiff = existingProduct.urun_adi !== wooProduct.name;
+    const categoriesDiff = JSON.stringify(existingProduct.categories || []) !== JSON.stringify(wooProduct.categories || []);
+    const imagesDiff = JSON.stringify(existingProduct.images || []) !== JSON.stringify(wooProduct.images || []);
+    // Tags are also preserved, so no need to check for tag differences
+    // const tagsDiff = JSON.stringify(existingProduct.supplier_tags || []) !== JSON.stringify(wooProduct.tags ? wooProduct.tags.map(tag => tag.name) : []);
 
-    return (
-      priceDiff > 0.01 ||
-      stockDiff > 0 ||
-      existingProduct.stock_status !== wooProduct.stock_status
-    );
+    // Only update if non-price/stock/tag fields have changed
+    return nameDiff || categoriesDiff || imagesDiff;
   }
 
-  /**
-   * Create update history record
-   */
-  private async createUpdateHistory(
-    product: Product,
-    source: string,
-    updateType: string,
-    details: any = {},
-  ): Promise<UpdateHistory> {
-    const history = new UpdateHistory();
-    history.product_id = product.id;
-    history.supplier_name = source as any;
-    history.update_type = updateType as any;
-    history.old_price = details.eski_fiyat || null;
-    history.new_price = details.yeni_fiyat || null;
-    history.eski_stok = details.eski_stok || null;
-    history.yeni_stok = details.yeni_stok || null;
-    history.eski_stok_durumu = details.eski_stok_durumu || null;
-    history.yeni_stok_durumu = details.yeni_stok_durumu || null;
-    history.change_details = details;
-    history.is_successful = true;
 
-    return await this.updateHistoryRepository.save(history);
-  }
 
   /**
    * Get products that need sync
@@ -362,6 +355,266 @@ export class ProductSyncService {
       .set({ sync_required: true })
       .where('id IN (:...productIds)', { productIds })
       .execute();
+  }
+
+  /**
+   * Start batch sync with progress tracking
+   */
+  async startBatchSync(options: SyncOptions = {}): Promise<string> {
+    const syncId = `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const { batchSize = 100 } = options;
+
+    // Initialize progress tracking
+    const progress: SyncProgress = {
+      syncId,
+      status: 'running',
+      totalProducts: 0,
+      processedProducts: 0,
+      successfulProducts: 0,
+      failedProducts: 0,
+      skippedProducts: 0,
+      startTime: new Date(),
+      errors: [],
+    };
+
+    this.activeSyncs.set(syncId, progress);
+
+    // Start async sync process
+    this.performBatchSync(syncId, options).catch((error) => {
+      this.logger.error(`Batch sync ${syncId} failed:`, error.message);
+      const currentProgress = this.activeSyncs.get(syncId);
+      if (currentProgress) {
+        currentProgress.status = 'failed';
+        currentProgress.endTime = new Date();
+        currentProgress.errors.push(error.message);
+      }
+    });
+
+    return syncId;
+  }
+
+  /**
+   * Get sync progress
+   */
+  async getSyncProgress(syncId: string): Promise<SyncProgress | null> {
+    return this.activeSyncs.get(syncId) || null;
+  }
+
+  /**
+   * Cancel sync
+   */
+  async cancelSync(syncId: string): Promise<boolean> {
+    const progress = this.activeSyncs.get(syncId);
+    if (progress && (progress.status === 'running' || progress.status === 'paused')) {
+      progress.status = 'cancelled';
+      progress.endTime = new Date();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Pause sync
+   */
+  async pauseSync(syncId: string): Promise<boolean> {
+    const progress = this.activeSyncs.get(syncId);
+    if (progress && progress.status === 'running') {
+      progress.status = 'paused';
+      this.logger.log(`Sync ${syncId} paused`);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Resume sync
+   */
+  async resumeSync(syncId: string): Promise<boolean> {
+    const progress = this.activeSyncs.get(syncId);
+    if (progress && progress.status === 'paused') {
+      progress.status = 'running';
+      this.logger.log(`Sync ${syncId} resumed`);
+      // Continue the batch sync process
+      this.performBatchSync(syncId, {}).catch(error => {
+        this.logger.error(`Error resuming sync ${syncId}:`, error.message);
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Perform batch sync with progress tracking
+   */
+  private async performBatchSync(syncId: string, options: SyncOptions = {}): Promise<void> {
+    let progress = this.activeSyncs.get(syncId);
+    if (!progress) {
+      throw new Error(`Sync ${syncId} not found`);
+    }
+
+    const { batchSize = 100, maxRetries = 3 } = options;
+
+    try {
+      this.logger.log(`Starting batch sync ${syncId}...`);
+
+      // Test connection first
+      const isConnected = await this.wooCommerceService.testConnection();
+      if (!isConnected) {
+        throw new Error('WooCommerce connection failed');
+      }
+
+      // Get total product count first
+      const totalResponse = await this.wooCommerceService.getProductsWithPagination(1, 1);
+      progress.totalProducts = totalResponse.pagination.totalProducts;
+
+      let page = 1;
+      let hasMoreProducts = true;
+      const startTime = Date.now();
+
+      while (hasMoreProducts && (progress.status === 'running' || progress.status === 'paused')) {
+        // Wait if paused
+        while (progress && progress.status === 'paused') {
+          await this.delay(1000); // Check every second
+          const currentProgress = this.activeSyncs.get(syncId);
+          if (!currentProgress || currentProgress.status === 'cancelled') {
+            return;
+          }
+          progress = currentProgress;
+        }
+        
+        if (progress.status !== 'running') {
+          break;
+        }
+        try {
+          const response = await this.wooCommerceService.getProductsWithPagination(page, batchSize);
+          const products = response.products;
+
+          if (products.length === 0) {
+            hasMoreProducts = false;
+            break;
+          }
+
+          // Process products in batch
+          for (const wooProduct of products) {
+            if (progress.status !== 'running') {
+              break;
+            }
+            
+            // Wait if paused
+            while (progress && progress.status === 'paused') {
+              await this.delay(1000);
+              const currentProgress = this.activeSyncs.get(syncId);
+              if (!currentProgress || currentProgress.status === 'cancelled') {
+                return;
+              }
+              progress = currentProgress;
+            }
+
+            progress.currentProduct = wooProduct.name;
+
+            try {
+              const result = await this.syncSingleProduct(wooProduct, options);
+              if (result.isNew || result.isUpdated) {
+                progress.successfulProducts++;
+              } else {
+                progress.skippedProducts++;
+              }
+            } catch (error) {
+              progress.failedProducts++;
+              progress.errors.push(`Product ${wooProduct.name}: ${error.message}`);
+              this.logger.error(`Error syncing product ${wooProduct.id}:`, error.message);
+            }
+
+            progress.processedProducts++;
+
+            // Calculate estimated time remaining
+            const elapsed = Date.now() - startTime;
+            const avgTimePerProduct = elapsed / progress.processedProducts;
+            const remainingProducts = progress.totalProducts - progress.processedProducts;
+            progress.estimatedTimeRemaining = Math.round(avgTimePerProduct * remainingProducts);
+
+            // Small delay to prevent overwhelming the system
+            await this.delay(50);
+          }
+
+          page++;
+
+          // Check if we have more products
+          hasMoreProducts = page <= response.pagination.totalPages;
+
+          // Longer delay between pages
+          await this.delay(200);
+        } catch (error) {
+          this.logger.error(`Error processing page ${page}:`, error.message);
+          progress.errors.push(`Page ${page}: ${error.message}`);
+          
+          // Retry logic for page failures
+          let retryCount = 0;
+          while (retryCount < maxRetries && progress.status === 'running') {
+            try {
+              await this.delay(1000 * (retryCount + 1)); // Exponential backoff
+              const retryResponse = await this.wooCommerceService.getProductsWithPagination(page, batchSize);
+              // If successful, continue with next page
+              break;
+            } catch (retryError) {
+              retryCount++;
+              if (retryCount >= maxRetries) {
+                throw new Error(`Failed to process page ${page} after ${maxRetries} retries`);
+              }
+            }
+          }
+        }
+      }
+
+      // Mark as completed
+      if (progress.status === 'running') {
+        progress.status = 'completed';
+      }
+      progress.endTime = new Date();
+      progress.currentProduct = undefined;
+
+      this.logger.log(
+        `Batch sync ${syncId} completed: ${progress.successfulProducts} successful, ${progress.failedProducts} failed`,
+      );
+
+      // Clean up old sync records after 1 hour
+      setTimeout(() => {
+        this.activeSyncs.delete(syncId);
+      }, 60 * 60 * 1000);
+
+    } catch (error) {
+      progress.status = 'failed';
+      progress.endTime = new Date();
+      progress.errors.push(error.message);
+      this.logger.error(`Batch sync ${syncId} failed:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all active syncs
+   */
+  async getActiveSyncs(): Promise<SyncProgress[]> {
+    return Array.from(this.activeSyncs.values());
+  }
+  
+
+
+  /**
+   * Clean up completed syncs older than specified time
+   */
+  async cleanupOldSyncs(olderThanHours = 24): Promise<number> {
+    const cutoffTime = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+    let cleanedCount = 0;
+
+    for (const [syncId, progress] of this.activeSyncs.entries()) {
+      if (progress.endTime && progress.endTime < cutoffTime) {
+        this.activeSyncs.delete(syncId);
+        cleanedCount++;
+      }
+    }
+
+    return cleanedCount;
   }
 
   /**

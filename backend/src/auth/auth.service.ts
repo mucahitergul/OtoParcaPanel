@@ -343,6 +343,56 @@ export class AuthService {
     }
   }
 
+  async updateProfile(userId: number, updateData: any) {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException('Kullanıcı bulunamadı');
+      }
+
+      // Update only allowed fields
+      const allowedFields = ['firstName', 'lastName', 'phone'];
+      const updateFields = {};
+      
+      for (const field of allowedFields) {
+        if (updateData[field] !== undefined) {
+          updateFields[field] = updateData[field];
+        }
+      }
+
+      await this.userRepository.update(userId, updateFields);
+      
+      // Get updated user
+      const updatedUser = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      const {
+        password,
+        resetPasswordToken,
+        resetPasswordExpires,
+        emailVerificationToken,
+        ...profile
+      } = updatedUser || {};
+
+      return {
+        success: true,
+        user: profile,
+        message: 'Profil başarıyla güncellendi',
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Profil güncellenirken bir hata oluştu',
+      );
+    }
+  }
+
   async logout(userId: number): Promise<{ success: boolean; message: string }> {
     try {
       // In a real application, you might want to blacklist the token
@@ -499,6 +549,53 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+
+
+  async createAdminUser(): Promise<{ success: boolean; message: string }> {
+    try {
+      const adminEmail = 'admin@otoparcapanel.com';
+      const adminPassword = 'Admin123!';
+
+      // Check if admin user already exists
+      const existingAdmin = await this.userRepository.findOne({
+        where: { email: adminEmail },
+      });
+
+      if (existingAdmin) {
+        return {
+          success: true,
+          message: 'Admin kullanıcısı zaten mevcut',
+        };
+      }
+
+      // Hash password
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
+
+      // Create admin user
+      const adminUser = this.userRepository.create({
+        email: adminEmail,
+        password: hashedPassword,
+        firstName: 'Admin',
+        lastName: 'User',
+        isActive: true,
+        emailVerified: true,
+        role: 'admin',
+      });
+
+      await this.userRepository.save(adminUser);
+      
+      return {
+        success: true,
+        message: 'Admin kullanıcısı başarıyla oluşturuldu',
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Admin kullanıcısı oluşturulurken bir hata oluştu: ' + error.message,
+      );
+    }
   }
 
   // TODO: Implement email sending methods

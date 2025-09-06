@@ -3,7 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import { User } from '../entities/user.entity';
 import { Product } from '../entities/product.entity';
 import { SupplierPrice } from '../entities/supplier-price.entity';
-import { UpdateHistory } from '../entities/update-history.entity';
+
 
 export class DemoDataSeeder {
   constructor(private dataSource: DataSource) {}
@@ -20,8 +20,7 @@ export class DemoDataSeeder {
     // Demo toptancı fiyatları oluştur
     await this.createDemoSupplierPrices();
 
-    // Demo güncelleme geçmişi oluştur
-    await this.createDemoUpdateHistory();
+
 
     console.log('✅ Demo veriler başarıyla oluşturuldu!');
   }
@@ -67,7 +66,6 @@ export class DemoDataSeeder {
         urun_adi: 'Fren Balata Takımı - Ön',
         description: 'Yüksek kaliteli fren balata takımı, ön aksam için uygun',
         stok_miktari: 25,
-        fiyat: 150.0,
         regular_price: 180.0,
         stock_status: 'instock' as 'instock' | 'outofstock' | 'onbackorder',
         manage_stock: true,
@@ -80,7 +78,6 @@ export class DemoDataSeeder {
         urun_adi: 'Motor Yağı 5W-30 4L',
         description: 'Sentetik motor yağı, tüm mevsim kullanımı',
         stok_miktari: 50,
-        fiyat: 85.0,
         regular_price: 110.0,
         stock_status: 'instock',
         manage_stock: true,
@@ -93,7 +90,6 @@ export class DemoDataSeeder {
         urun_adi: 'Hava Filtresi',
         description: 'Yüksek filtrasyon kapasiteli hava filtresi',
         stok_miktari: 0,
-        fiyat: 45.0,
         regular_price: 65.0,
         stock_status: 'outofstock' as 'instock' | 'outofstock' | 'onbackorder',
         manage_stock: true,
@@ -106,7 +102,6 @@ export class DemoDataSeeder {
         urun_adi: 'Amortisör Takımı - Arka',
         description: 'Hidrolik amortisör takımı, arka aksam',
         stok_miktari: 15,
-        fiyat: 320.0,
         regular_price: 380.0,
         stock_status: 'instock' as 'instock' | 'outofstock' | 'onbackorder',
         manage_stock: true,
@@ -119,7 +114,6 @@ export class DemoDataSeeder {
         urun_adi: 'Far Ampulü H7 12V',
         description: 'Halogen far ampulü, uzun ömürlü',
         stok_miktari: 100,
-        fiyat: 25.0,
         regular_price: 35.0,
         stock_status: 'instock' as 'instock' | 'outofstock' | 'onbackorder',
         manage_stock: true,
@@ -160,7 +154,7 @@ export class DemoDataSeeder {
 
         if (!existingPrice) {
           // Rastgele fiyat ve stok durumu oluştur
-          const basePrice = product.fiyat;
+          const basePrice = product.regular_price;
           const priceVariation = Math.random() * 0.3 - 0.15; // ±15% varyasyon
           const supplierPrice = basePrice * (1 + priceVariation);
 
@@ -195,43 +189,5 @@ export class DemoDataSeeder {
     console.log('💰 Toptancı fiyatları oluşturuldu');
   }
 
-  private async createDemoUpdateHistory() {
-    const updateHistoryRepository =
-      this.dataSource.getRepository(UpdateHistory);
-    const productRepository = this.dataSource.getRepository(Product);
 
-    const products = await productRepository.find({ take: 3 }); // İlk 3 ürün için
-    const updateTypes = ['price', 'stock', 'both', 'sync'] as const;
-    const suppliers = ['Dinamik', 'Başbuğ', 'Doğuş', 'WooCommerce'] as const;
-
-    for (const product of products) {
-      // Her ürün için 2-4 güncelleme geçmişi oluştur
-      const historyCount = Math.floor(Math.random() * 3) + 2;
-
-      for (let i = 0; i < historyCount; i++) {
-        const randomSupplier =
-          suppliers[Math.floor(Math.random() * suppliers.length)];
-        const randomUpdateType =
-          updateTypes[Math.floor(Math.random() * updateTypes.length)];
-
-        const historyData = updateHistoryRepository.create({
-          product_id: product.id,
-          supplier_name: randomSupplier,
-          update_type: randomUpdateType,
-          old_price: Number((product.fiyat - Math.random() * 20).toFixed(2)),
-          new_price: Number(product.fiyat),
-          eski_stok: Math.floor(Math.random() * 30),
-          yeni_stok: Number(product.stok_miktari),
-          eski_stok_durumu: 'outofstock',
-          yeni_stok_durumu: product.stock_status,
-          notes: `${randomSupplier} toptancısından otomatik güncelleme`,
-          is_successful: Math.random() > 0.1, // %90 başarı oranı
-        });
-
-        await updateHistoryRepository.save(historyData);
-      }
-    }
-
-    console.log('📊 Güncelleme geçmişi oluşturuldu');
-  }
 }

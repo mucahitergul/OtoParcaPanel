@@ -175,10 +175,10 @@ export default function ExportModal({
                 <button
                   key={formatType}
                   onClick={() => setFormat(formatType)}
-                  className={`p-4 border-2 rounded-lg transition-all ${
+                  className={`p-4 transition-all ${
                     format === formatType
-                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      ? 'bg-primary-50 dark:bg-primary-900/20'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   <div className="flex flex-col items-center gap-2">
@@ -199,7 +199,7 @@ export default function ExportModal({
             </label>
             <div className="space-y-2">
               {selectedCount > 0 && (
-                <label className="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <label className="flex items-center p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <input
                     type="radio"
                     name="scope"

@@ -10,13 +10,18 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { Public } from '../auth/decorators/public.decorator';
 import { WooCommerceService } from './woocommerce.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ProductSyncService } from '../products/product-sync.service';
 
 @Controller('woocommerce')
 @UseGuards(JwtAuthGuard)
 export class WooCommerceController {
-  constructor(private readonly wooCommerceService: WooCommerceService) {}
+  constructor(
+    private readonly wooCommerceService: WooCommerceService,
+    private readonly productSyncService: ProductSyncService,
+  ) {}
 
   /**
    * Test WooCommerce connection
@@ -47,6 +52,7 @@ export class WooCommerceController {
   /**
    * Get WooCommerce configuration status
    */
+  @Public()
   @Get('config-status')
   getConfigStatus() {
     return this.wooCommerceService.getConfigStatus();
@@ -233,19 +239,177 @@ export class WooCommerceController {
    * Sync all products from WooCommerce
    */
   @Post('sync-products')
-  async syncProducts() {
+  async syncProducts(
+    @Body() options: { forceUpdate?: boolean; batchSize?: number } = {},
+  ) {
     try {
-      // This will be implemented when we create the product sync service
+      // Reload WooCommerce configuration from database before syncing
+      await this.wooCommerceService.reloadConfig();
+      
+      const result = await this.productSyncService.syncAllProducts(options);
       return {
-        success: true,
-        message: 'Product sync initiated',
+        success: result.success,
+        message: result.success
+          ? `Successfully synced ${result.totalProducts} products (${result.newProducts} new, ${result.updatedProducts} updated)`
+          : 'Sync completed with errors',
+        data: result,
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
       throw new HttpException(
         {
           success: false,
-          message: 'Failed to sync products',
+          message: 'Failed to sync products from WooCommerce',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Start batch sync with progress tracking
+   */
+  @Post('sync-products-batch')
+  async syncProductsBatch(
+    @Body() options: { forceUpdate?: boolean; batchSize?: number } = {},
+  ) {
+    try {
+      // Reload WooCommerce configuration from database before syncing
+      await this.wooCommerceService.reloadConfig();
+      
+      const syncId = await this.productSyncService.startBatchSync(options);
+      return {
+        success: true,
+        message: 'Batch sync started successfully',
+        data: { syncId },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to start batch sync',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get batch sync progress
+   */
+  @Get('sync-progress/:syncId')
+  async getSyncProgress(@Param('syncId') syncId: string) {
+    try {
+      const progress = await this.productSyncService.getSyncProgress(syncId);
+      return {
+        success: true,
+        data: progress,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to get sync progress',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Cancel batch sync
+   */
+  @Post('cancel-sync/:syncId')
+  async cancelSync(@Param('syncId') syncId: string) {
+    try {
+      const cancelled = await this.productSyncService.cancelSync(syncId);
+      return {
+        success: cancelled,
+        message: cancelled ? 'Sync cancelled successfully' : 'Sync not found or already completed',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to cancel sync',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Pause batch sync
+   */
+  @Post('pause-sync/:syncId')
+  async pauseSync(@Param('syncId') syncId: string) {
+    try {
+      const paused = await this.productSyncService.pauseSync(syncId);
+      return {
+        success: paused,
+        message: paused ? 'Sync paused successfully' : 'Sync not found or not running',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to pause sync',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Resume batch sync
+   */
+  @Post('resume-sync/:syncId')
+  async resumeSync(@Param('syncId') syncId: string) {
+    try {
+      const resumed = await this.productSyncService.resumeSync(syncId);
+      return {
+        success: resumed,
+        message: resumed ? 'Sync resumed successfully' : 'Sync not found or not paused',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to resume sync',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get all active syncs
+   */
+  @Get('active-syncs')
+  async getActiveSyncs() {
+    try {
+      const activeSyncs = await this.productSyncService.getActiveSyncs();
+      return {
+        success: true,
+        data: activeSyncs,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to get active syncs',
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

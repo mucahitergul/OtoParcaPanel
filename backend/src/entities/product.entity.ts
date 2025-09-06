@@ -7,8 +7,6 @@ import {
   OneToMany,
 } from 'typeorm';
 import { SupplierPrice } from './supplier-price.entity';
-import { UpdateHistory } from './update-history.entity';
-import { PriceHistory } from './price-history.entity';
 import { StockHistory } from './stock-history.entity';
 
 @Entity('products')
@@ -29,9 +27,6 @@ export class Product {
   stok_miktari: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  fiyat: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   regular_price: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
@@ -78,6 +73,12 @@ export class Product {
   @Column({ type: 'json', nullable: true })
   attributes: Record<string, any>;
 
+  @Column({ type: 'json', nullable: true })
+  supplier_tags: string[];
+
+  @Column({ type: 'json', nullable: true })
+  woo_tags: string[];
+
   @Column({ default: true })
   is_active: boolean;
 
@@ -102,12 +103,6 @@ export class Product {
   // Relations
   @OneToMany(() => SupplierPrice, (supplierPrice) => supplierPrice.product)
   supplier_prices: SupplierPrice[];
-
-  @OneToMany(() => UpdateHistory, (updateHistory) => updateHistory.product)
-  update_history: UpdateHistory[];
-
-  @OneToMany(() => PriceHistory, (priceHistory) => priceHistory.product)
-  price_history: PriceHistory[];
 
   @OneToMany(() => StockHistory, (stockHistory) => stockHistory.product)
   stock_history: StockHistory[];
@@ -137,7 +132,7 @@ export class Product {
   }
 
   get current_price(): number {
-    return this.calculated_price || this.fiyat;
+    return this.calculated_price || this.regular_price;
   }
 
   get current_stock(): number {

@@ -6,54 +6,280 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  /* Light theme - Figma design colors */
+  --background: #F9F9F9;
+  --foreground: #1a1a1a;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1a1a1a;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #3b82f6;
+  --popover-foreground: #1a1a1a;
+  --primary: #2B7BDA;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
+  --secondary: #f8f9fa;
+  --secondary-foreground: #1a1a1a;
+  --muted: #f8f9fa;
+  --muted-foreground: #6c757d;
+  --accent: #f8f9fa;
+  --accent-foreground: #1a1a1a;
+  --destructive: #dc3545;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #3b82f6;
-  --radius: 0.5rem;
+  --border: #e9ecef;
+  --input: #e9ecef;
+  --ring: #2B7BDA;
+  --radius: 5px;
+  
+  /* Light mode specific colors from Figma */
+  --light-bg: #ffffff;
+  --light-surface: #ffffff;
+  --light-border: #e9ecef;
+  --light-text-primary: #1a1a1a;
+  --light-text-secondary: #6c757d;
+  --light-text-muted: #adb5bd;
+  
+  /* Header and sidebar borders from Figma */
+  --header-border: #e9ecef;
+  --sidebar-border-light: #e9ecef;
+  
+  /* Figma dark theme colors */
+  --bg: #0A0E13;
+  --bg-subtle: #0F1419;
+  --surface-1: #161B22;
+  --surface-2: #1C2128;
+  --surface-3: #21262D;
+  --border-color: #30363D;
+  --muted-color: #7D8590;
+  --foreground-color: #E6EDF3;
+  --heading-color: #F0F6FC;
+  
+  /* Sidebar specific colors */
+  --sidebar-bg: #0D1117;
+  --sidebar-border: #21262D;
+  --sidebar-item: #161B22;
+  --sidebar-item-hover: #21262D;
+  --sidebar-text: #7D8590;
+  --sidebar-text-active: #F0F6FC;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #020617;
-    --foreground: #f8fafc;
-    --card: #0f172a;
-    --card-foreground: #f8fafc;
-    --popover: #0f172a;
-    --popover-foreground: #f8fafc;
-    --primary: #3b82f6;
+    --background: var(--bg);
+    --foreground: var(--foreground-color);
+    --card: var(--surface-1);
+    --card-foreground: var(--foreground-color);
+    --popover: var(--surface-2);
+    --popover-foreground: var(--foreground-color);
+    --primary: #2B7BDA;
     --primary-foreground: #ffffff;
-    --secondary: #1e293b;
-    --secondary-foreground: #f8fafc;
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8;
-    --accent: #1e293b;
-    --accent-foreground: #f8fafc;
-    --destructive: #ef4444;
+    --secondary: var(--surface-2);
+    --secondary-foreground: var(--foreground-color);
+    --muted: var(--surface-3);
+    --muted-foreground: var(--muted-color);
+    --accent: var(--surface-2);
+    --accent-foreground: var(--foreground-color);
+    --destructive: #EF4444;
     --destructive-foreground: #ffffff;
-    --border: #334155;
-    --input: #334155;
-    --ring: #3b82f6;
+    --border: var(--border-color);
+    --input: var(--border-color);
+    --ring: #2B7BDA;
   }
 }
 
-* {
-  border-color: hsl(var(--border));
+/* Dark mode class overrides */
+.dark {
+  --background: var(--bg);
+  --foreground: var(--foreground-color);
+  --card: var(--surface-1);
+  --card-foreground: var(--foreground-color);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--foreground-color);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground-color);
+  --muted: var(--surface-3);
+  --muted-foreground: var(--muted-color);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--foreground-color);
+  --border: var(--border-color);
+  --input: var(--border-color);
+}
+
+/* Sidebar specific dark mode styles */
+.dark .bg-sidebar-bg {
+  background-color: var(--sidebar-bg) !important;
+}
+
+.dark .bg-sidebar-item {
+  background-color: var(--sidebar-item) !important;
+}
+
+.dark .bg-sidebar-item-hover {
+  background-color: var(--sidebar-item-hover) !important;
+}
+
+.dark .text-sidebar-text {
+  color: var(--sidebar-text) !important;
+}
+
+.dark .text-sidebar-text-active {
+  color: var(--sidebar-text-active) !important;
+}
+
+.dark .border-sidebar-border {
+  border-color: var(--sidebar-border) !important;
+}
+
+/* Override Tailwind colors in dark mode */
+.dark .bg-gray-50 {
+  background-color: var(--surface-1) !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: var(--surface-2) !important;
+}
+
+.dark .bg-gray-800 {
+  background-color: var(--surface-1) !important;
+}
+
+.dark .bg-gray-900 {
+  background-color: var(--bg) !important;
+}
+
+.dark .bg-white {
+  background-color: var(--surface-1) !important;
+}
+
+.dark .text-gray-900 {
+  color: var(--heading-color) !important;
+}
+
+.dark .text-gray-600 {
+  color: var(--muted-color) !important;
+}
+
+.dark .text-gray-500 {
+  color: #C9D1D9 !important;
+}
+
+.dark .text-gray-400 {
+  color: #E6EDF3 !important;
+}
+
+.dark .text-gray-300 {
+  color: #F0F6FC !important;
+}
+
+/* Placeholder colors for better readability */
+.dark .placeholder-gray-500::placeholder {
+  color: #C9D1D9 !important;
+}
+
+.dark .placeholder-gray-400::placeholder {
+  color: #E6EDF3 !important;
+}
+
+.dark .border-gray-200 {
+  border-color: var(--border-color) !important;
+}
+
+.dark .border-gray-300 {
+  border-color: var(--border-color) !important;
+}
+
+.dark .border-gray-600 {
+  border-color: #30363D !important;
+}
+
+.dark .border-gray-700 {
+  border-color: #21262D !important;
+}
+
+/* Divide colors for better visibility */
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border-color) !important;
+}
+
+.dark .divide-gray-700 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #30363D !important;
+}
+
+/* Light mode overrides for Figma design */
+.bg-white {
+  background-color: var(--light-surface) !important;
+}
+
+.text-gray-900 {
+  color: var(--light-text-primary) !important;
+}
+
+.text-gray-600 {
+  color: var(--light-text-secondary) !important;
+}
+
+.text-gray-500 {
+  color: var(--light-text-muted) !important;
+}
+
+.border-gray-200 {
+  border-color: var(--light-border) !important;
+}
+
+/* Global border removal - removed to allow specific borders */
+
+/* Specific border radius for cards and tables */
+.bg-white, .card, [class*="card"], table, .table, .border {
+  border-radius: 5px !important;
+}
+
+/* Exception for full rounded elements */
+.rounded-full {
+  border-radius: 9999px !important;
+}
+
+/* Light mode background and card styles */
+body {
+  background-color: #F9F9F9 !important;
+}
+
+/* Override any gray backgrounds */
+.bg-gray-50 {
+  background-color: #F6F8FB !important;
+}
+
+.bg-gray-100 {
+  background-color: #F9F9F9 !important;
+}
+
+/* Card drop shadow */
+.shadow-soft {
+  box-shadow: 0 2px 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+.shadow-medium {
+  box-shadow: 0 2px 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+.shadow-sm {
+  box-shadow: 0 2px 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+.shadow {
+  box-shadow: 0 2px 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+.shadow-lg {
+  box-shadow: 0 2px 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* White background for cards in light mode */
+.bg-white {
+  background-color: white !important;
+  box-shadow: 0 2px 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Card components with drop shadow */
+.card, [class*="card"] {
+  background-color: white !important;
+  box-shadow: 0 2px 1px rgba(0, 0, 0, 0.05) !important;
 }
 
 body {
@@ -118,4 +344,13 @@ body {
     opacity: 0;
     transform: translateY(-4px);
   }
+}
+
+/* Global border style */
+.border, .border-solid, [class*="border-"] {
+  border: 1px solid #ebebeb !important;
+}
+
+.dark .border, .dark .border-solid, .dark [class*="border-"] {
+  border: 1px solid #30363D !important;
 }
