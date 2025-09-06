@@ -6,8 +6,17 @@
 .pnp.js
 /backend/node_modules
 /frontend/node_modules
-/scraper/__pycache__
-/scraper/*.pyc
+# Scraper directories - do not commit to GitHub
+/scraper/
+/scraper_basbug/
+/scraper_dinamik/
+/scraper_dogus/
+/scraper_local/
+
+# Scraper cache files
+*/__pycache__/
+*.pyc
+*.pyo
 
 # Testing
 /coverage
