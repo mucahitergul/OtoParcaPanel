@@ -112,7 +112,7 @@ export class SystemService {
 
   private async checkDogusScraper() {
     try {
-      const response = await axios.get('http://localhost:5003/health', {
+      const response = await axios.get('http://192.168.1.101:5003/health', {
         timeout: 2000,
       });
 

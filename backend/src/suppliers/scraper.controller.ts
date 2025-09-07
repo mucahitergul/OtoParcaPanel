@@ -15,6 +15,17 @@ import axios from 'axios';
 @Controller('scraper')
 @Public()
 export class ScraperController {
+  private registeredScrapers = new Map<string, {
+    id: string;
+    ipAddress: string;
+    port: number;
+    status: string;
+    lastHeartbeat: Date;
+    browserReady: boolean;
+    loggedIn: boolean;
+    captchaWaiting: boolean;
+  }>();
+
   constructor(private readonly suppliersService: SuppliersService) {}
 
   /**
@@ -352,12 +363,37 @@ export class ScraperController {
    * Heartbeat endpoint for scraper
    */
   @Post('heartbeat/:scraperId')
-  async scraperHeartbeat(@Param('scraperId') scraperId: string) {
+  async scraperHeartbeat(
+    @Param('scraperId') scraperId: string,
+    @Body() heartbeatData: {
+      scraper_id: string;
+      ip_address: string;
+      port: number;
+      status: string;
+      browser_ready: boolean;
+      logged_in: boolean;
+      captcha_waiting: boolean;
+      timestamp: string;
+    }
+  ) {
     try {
-      // In a real implementation, you would update the last seen timestamp in database
+      // Update scraper registration
+      this.registeredScrapers.set(scraperId, {
+        id: scraperId,
+        ipAddress: heartbeatData.ip_address,
+        port: heartbeatData.port,
+        status: heartbeatData.status,
+        lastHeartbeat: new Date(),
+        browserReady: heartbeatData.browser_ready,
+        loggedIn: heartbeatData.logged_in,
+        captchaWaiting: heartbeatData.captcha_waiting,
+      });
+
+      console.log(`Heartbeat received from ${scraperId} at ${heartbeatData.ip_address}:${heartbeatData.port}`);
+
       return {
         success: true,
-        message: 'Heartbeat received',
+        message: 'Heartbeat received and registered',
         scraperId,
         timestamp: new Date().toISOString(),
       };
@@ -367,6 +403,87 @@ export class ScraperController {
           success: false,
           message: 'Failed to process heartbeat',
           error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get registered scrapers
+   */
+  @Get('registered')
+  async getRegisteredScrapers() {
+    const scrapers = Array.from(this.registeredScrapers.values()).map(scraper => ({
+      ...scraper,
+      isOnline: (new Date().getTime() - scraper.lastHeartbeat.getTime()) < 60000, // Online if heartbeat within 1 minute
+    }));
+
+    return {
+      success: true,
+      scrapers,
+      count: scrapers.length,
+    };
+  }
+
+  /**
+   * Proxy endpoint to forward requests to local scrapers
+   */
+  @Post('proxy/:scraperId')
+  async proxyToScraper(
+    @Param('scraperId') scraperId: string,
+    @Body() requestData: any
+  ) {
+    try {
+      const scraper = this.registeredScrapers.get(scraperId);
+      
+      if (!scraper) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Scraper '${scraperId}' not found or not registered`,
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Check if scraper is online (heartbeat within last minute)
+      const isOnline = (new Date().getTime() - scraper.lastHeartbeat.getTime()) < 60000;
+      if (!isOnline) {
+        throw new HttpException(
+          {
+            success: false,
+            message: `Scraper '${scraperId}' is offline`,
+            lastHeartbeat: scraper.lastHeartbeat.toISOString(),
+          },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+
+      // Forward request to scraper
+      const scraperUrl = `http://${scraper.ipAddress}:${scraper.port}/scrape`;
+      console.log(`Proxying request to ${scraperUrl}`);
+
+      const response = await axios.post(scraperUrl, requestData, {
+        timeout: 30000, // 30 second timeout
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      console.error(`Proxy error for ${scraperId}:`, error.message);
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to proxy request to scraper',
+          error: error.message,
+          scraperId,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

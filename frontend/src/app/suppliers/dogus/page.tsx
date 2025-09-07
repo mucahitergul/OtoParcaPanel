@@ -536,7 +536,7 @@ export default function DogusSupplierPage() {
          const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
          
          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://otoparca.isletmemdijitalde.com/api';
-         response = await fetch(`${baseUrl}/scraper/request-update`, {
+         response = await fetch(`${baseUrl}/scraper/proxy/dogus`, {
            method: 'POST',
            headers,
            body: JSON.stringify({
