@@ -12,7 +12,6 @@ import {
   ArrowDownRight,
   Calendar,
   ShoppingCart,
-  History,
   Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -245,13 +244,6 @@ export default function DashboardPage() {
       href: '/suppliers',
       icon: DollarSign,
       color: 'bg-green-500'
-    },
-    {
-      title: 'Fiyat Geçmişi',
-      description: 'Fiyat değişikliklerini takip et',
-      href: '/price-history',
-      icon: History,
-      color: 'bg-purple-500'
     },
     {
       title: 'Sistem Ayarları',
