@@ -555,17 +555,13 @@ export class ProductsService {
       if (Object.keys(wooUpdateData).length > 0) {
         await this.performWooCommerceUpdate(product.woo_product_id, wooUpdateData);
         
-        // Mark sync as completed - always set to false after successful sync
+        // Mark sync as completed
         product.sync_required = false;
         product.last_sync_date = new Date();
         await this.productRepository.save(product);
         
         this.logger.log(`Successfully synced product ${product.id} to WooCommerce with data:`, wooUpdateData);
       } else {
-        // Even if no changes, mark sync as completed since we checked
-        product.sync_required = false;
-        product.last_sync_date = new Date();
-        await this.productRepository.save(product);
         this.logger.log(`No WooCommerce sync needed for product ${product.id}`);
       }
       

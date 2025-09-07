@@ -231,7 +231,6 @@ export class DemoDataSeeder {
         });
 
         await settingsRepository.save(setting);
-        console.log(`✅ Sistem ayarı oluşturuldu: ${settingData.key}`);
       }
     }
 

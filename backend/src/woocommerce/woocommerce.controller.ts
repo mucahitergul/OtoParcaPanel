@@ -78,7 +78,12 @@ export class WooCommerceController {
       return {
         success: true,
         data: result.products,
-        pagination: result.pagination,
+        pagination: {
+          totalPages: result.totalPages,
+          totalProducts: result.totalProducts,
+          currentPage: result.currentPage,
+          perPage: result.perPage
+        },
         timestamp: new Date().toISOString(),
       };
     } catch (error) {

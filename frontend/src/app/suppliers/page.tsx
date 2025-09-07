@@ -30,7 +30,7 @@ interface Product {
   stok_kodu: string;
   urun_adi: string;
   fiyat: number | string;
-  regular_price: number | string;
+  regular_price: number;
   stok_miktari: number;
   dinamik_price?: number | string;
   dinamik_stock?: number;

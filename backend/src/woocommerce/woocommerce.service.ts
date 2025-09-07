@@ -36,36 +36,40 @@ export class WooCommerceService {
     private settingsService: SettingsService,
   ) {
     this.initializeConfig();
+    // Default config
+    this.config = {
+      url: 'https://example.com',
+      consumerKey: '',
+      consumerSecret: '',
+    };
+    // Initialize axios instance
+    this.setupAxiosInstance();
   }
 
   private async initializeConfig() {
     try {
-      // Get settings from database only
-      const wooSettings = await this.settingsService.getWooCommerceSettings();
-      this.config = {
-        url: wooSettings.woocommerce_api_url || 'https://example.com',
-        consumerKey: wooSettings.woocommerce_consumer_key || '',
-        consumerSecret: wooSettings.woocommerce_consumer_secret || '',
-      };
-      this.logger.log('WooCommerce configuration loaded from database');
+      const settings = await this.settingsService.getWooCommerceSettings();
+      if (settings.woocommerce_api_url && settings.woocommerce_consumer_key && settings.woocommerce_consumer_secret) {
+        this.config = {
+          url: settings.woocommerce_api_url,
+          consumerKey: settings.woocommerce_consumer_key,
+          consumerSecret: settings.woocommerce_consumer_secret,
+        };
+        this.setupAxiosInstance();
+      }
     } catch (error) {
-      this.logger.warn('Failed to load WooCommerce settings from database, using defaults');
-      this.config = {
-        url: 'https://example.com',
-        consumerKey: '',
-        consumerSecret: '',
-      };
+      this.logger.warn('Could not load WooCommerce settings from database:', error.message);
+      // Keep default config
     }
 
     this.setupAxiosInstance();
   }
 
   /**
-   * Reload configuration from database
+   * Reload configuration from settings
    */
   async reloadConfig() {
     await this.initializeConfig();
-    this.logger.log('WooCommerce configuration reloaded');
   }
 
   private setupAxiosInstance() {
@@ -90,130 +94,127 @@ export class WooCommerceService {
       })
     });
 
-    // Request interceptor for logging
+    // Request interceptor
     this.axiosInstance.interceptors.request.use(
       (config) => {
-        this.logger.debug(`Making request to: ${config.url}`);
+        this.logger.debug(`WooCommerce API Request: ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
       (error) => {
-        this.logger.error('Request error:', error);
+        this.logger.error('WooCommerce API Request Error:', error);
         return Promise.reject(error);
       },
     );
 
-    // Response interceptor for logging and error handling
+    // Response interceptor
     this.axiosInstance.interceptors.response.use(
       (response) => {
-        this.logger.debug(`Response received from: ${response.config.url}`);
+        this.logger.debug(`WooCommerce API Response: ${response.status} ${response.config.url}`);
         return response;
       },
       (error) => {
-        this.logger.error(
-          'Response error:',
-          error.response?.data || error.message,
-        );
+        this.logger.error(`WooCommerce API Error: ${error.response?.status} ${error.config?.url}`, {
+          status: error.response?.status,
+          data: error.response?.data,
+        });
         return Promise.reject(error);
       },
     );
   }
 
   /**
-   * Test WooCommerce API connection
+   * Test WooCommerce connection
    */
   async testConnection(): Promise<boolean> {
     try {
-      // Ensure config is loaded
+      // Ensure config is initialized
       await this.initializeConfig();
       
-      // Check if config is properly set
-      if (!this.config || !this.config.url || !this.config.consumerKey || !this.config.consumerSecret) {
-        this.logger.error('WooCommerce configuration is incomplete');
-        return false;
-      }
-
-      // Check if axiosInstance is available
       if (!this.axiosInstance) {
-        this.logger.error('WooCommerce axios instance not initialized');
+        this.logger.error('WooCommerce not configured properly');
         return false;
       }
 
-      // Try to get a simple endpoint first (products with limit 1)
+      // Validate that we have proper credentials
+      if (!this.config.consumerKey || !this.config.consumerSecret || this.config.url === 'https://example.com') {
+        this.logger.error('WooCommerce credentials are not properly configured');
+        return false;
+      }
+
+      // Test with a simple API call
       const response = await this.axiosInstance.get('/products', {
         params: {
           per_page: 1,
-          status: 'any'
+          page: 1,
         },
-        timeout: 10000
       });
-      
-      this.logger.log('WooCommerce connection test successful');
-      return response.status === 200;
-    } catch (error) {
-      this.logger.error('WooCommerce connection test failed:', error.message);
-      
-      // Try alternative endpoint if products fails
-      try {
-        const response = await this.axiosInstance.get('/data/countries');
-        this.logger.log('WooCommerce connection test successful (alternative endpoint)');
-        return response.status === 200;
-      } catch (altError) {
-        this.logger.error('WooCommerce alternative connection test also failed:', altError.message);
+
+      if (response.status === 200) {
+        this.logger.log('WooCommerce connection test successful');
+        return true;
+      } else {
+        this.logger.error(`WooCommerce connection test failed with status: ${response.status}`);
         return false;
       }
+    } catch (error) {
+      this.logger.error('WooCommerce connection test failed:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+      return false;
     }
   }
 
   /**
-   * Get all products from WooCommerce
+   * Get all products with pagination
    */
   async getAllProducts(page = 1, perPage = 100): Promise<WooCommerceProduct[]> {
     try {
-      // Ensure config is loaded
+      // Ensure config is initialized
       await this.initializeConfig();
       
-      // Check if axiosInstance is available
       if (!this.axiosInstance) {
-        throw new Error('WooCommerce axios instance not initialized');
+        this.logger.error('WooCommerce not configured properly');
+        return [];
       }
-      
+
       const response = await this.axiosInstance.get('/products', {
         params: {
-          page,
           per_page: perPage,
+          page: page,
           status: 'publish',
-          // Explicitly request tags and categories to be included
-          _fields: 'id,name,sku,price,regular_price,sale_price,stock_quantity,manage_stock,stock_status,categories,images,tags,date_created,date_modified'
         },
       });
 
-      this.logger.log(
-        `Fetched ${response.data.length} products from WooCommerce`,
-      );
+      this.logger.log(`Retrieved ${response.data.length} products from WooCommerce (page ${page})`);
       return response.data;
     } catch (error) {
-      this.logger.error(
-        'Error fetching products from WooCommerce:',
-        error.message,
-      );
-      throw new Error(`Failed to fetch products: ${error.message}`);
+      this.logger.error('Error fetching products from WooCommerce:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+      return [];
     }
   }
 
   /**
-   * Get a specific product by ID
+   * Get product by ID
    */
   async getProductById(productId: number): Promise<WooCommerceProduct> {
     try {
-      const response = await this.axiosInstance.get(`/products/${productId}`, {
-        params: {
-          _embed: true, // Include tags and other embedded data
-        },
-      });
+      await this.initializeConfig();
+      
+      if (!this.axiosInstance) {
+        throw new Error('WooCommerce not configured properly');
+      }
+
+      const response = await this.axiosInstance.get(`/products/${productId}`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Error fetching product ${productId}:`, error.message);
-      throw new Error(`Failed to fetch product ${productId}: ${error.message}`);
+      this.logger.error(`Error fetching product ${productId} from WooCommerce:`, error.message);
+      throw error;
     }
   }
 
@@ -222,22 +223,23 @@ export class WooCommerceService {
    */
   async getProductBySku(sku: string): Promise<WooCommerceProduct[]> {
     try {
+      await this.initializeConfig();
+      
+      if (!this.axiosInstance) {
+        this.logger.error('WooCommerce not configured properly');
+        return [];
+      }
+
       const response = await this.axiosInstance.get('/products', {
         params: {
-          sku,
-          status: 'publish',
-          _embed: true, // Include tags and other embedded data
+          sku: sku,
         },
       });
+
       return response.data;
     } catch (error) {
-      this.logger.error(
-        `Error fetching product with SKU ${sku}:`,
-        error.message,
-      );
-      throw new Error(
-        `Failed to fetch product with SKU ${sku}: ${error.message}`,
-      );
+      this.logger.error(`Error fetching product with SKU ${sku} from WooCommerce:`, error.message);
+      return [];
     }
   }
 
@@ -246,12 +248,24 @@ export class WooCommerceService {
    */
   async getProductsWithPagination(page = 1, perPage = 100) {
     try {
+      await this.initializeConfig();
+      
+      if (!this.axiosInstance) {
+        this.logger.error('WooCommerce not configured properly');
+        return {
+          products: [],
+          totalPages: 0,
+          totalProducts: 0,
+          currentPage: page,
+          perPage: perPage,
+        };
+      }
+
       const response = await this.axiosInstance.get('/products', {
         params: {
-          page,
           per_page: perPage,
+          page: page,
           status: 'publish',
-          _embed: true, // Include tags and other embedded data
         },
       });
 
@@ -260,26 +274,25 @@ export class WooCommerceService {
 
       return {
         products: response.data,
-        pagination: {
-          currentPage: page,
-          perPage,
-          totalProducts,
-          totalPages,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
-        },
+        totalPages,
+        totalProducts,
+        currentPage: page,
+        perPage: perPage,
       };
     } catch (error) {
-      this.logger.error(
-        'Error fetching products with pagination:',
-        error.message,
-      );
-      throw new Error(`Failed to fetch products: ${error.message}`);
+      this.logger.error('Error fetching products with pagination from WooCommerce:', error.message);
+      return {
+        products: [],
+        totalPages: 0,
+        totalProducts: 0,
+        currentPage: page,
+        perPage: perPage,
+      };
     }
   }
 
   /**
-   * Update product stock in WooCommerce
+   * Update product stock
    */
   async updateProductStock(
     productId: number,
@@ -288,31 +301,31 @@ export class WooCommerceService {
   ): Promise<WooCommerceProduct> {
     try {
       await this.initializeConfig();
+      
       if (!this.axiosInstance) {
-        throw new Error('WooCommerce configuration not available');
+        throw new Error('WooCommerce not configured properly');
       }
 
-      const response = await this.axiosInstance.put(`/products/${productId}`, {
+      const updateData: any = {
         stock_quantity: stockQuantity,
         manage_stock: true,
-        stock_status: stockStatus || (stockQuantity > 0 ? 'instock' : 'outofstock'),
-      });
+      };
 
-      this.logger.log(
-        `Updated stock for product ${productId} to ${stockQuantity}`,
-      );
+      if (stockStatus) {
+        updateData.stock_status = stockStatus;
+      }
+
+      const response = await this.axiosInstance.put(`/products/${productId}`, updateData);
+      this.logger.log(`Updated stock for product ${productId}: ${stockQuantity}`);
       return response.data;
     } catch (error) {
-      this.logger.error(
-        `Error updating stock for product ${productId}:`,
-        error.message,
-      );
-      throw new Error(`Failed to update stock: ${error.message}`);
+      this.logger.error(`Error updating stock for product ${productId}:`, error.message);
+      throw error;
     }
   }
 
   /**
-   * Update product price in WooCommerce
+   * Update product price
    */
   async updateProductPrice(
     productId: number,
@@ -320,28 +333,27 @@ export class WooCommerceService {
   ): Promise<WooCommerceProduct> {
     try {
       await this.initializeConfig();
+      
       if (!this.axiosInstance) {
-        throw new Error('WooCommerce configuration not available');
+        throw new Error('WooCommerce not configured properly');
       }
 
-      const priceStr = price.toString();
-      const response = await this.axiosInstance.put(`/products/${productId}`, {
-        regular_price: priceStr,
-      });
+      const updateData = {
+        regular_price: price.toString(),
+        price: price.toString(),
+      };
 
-      this.logger.log(`Updated price for product ${productId} to ${priceStr}`);
+      const response = await this.axiosInstance.put(`/products/${productId}`, updateData);
+      this.logger.log(`Updated price for product ${productId}: ${price}`);
       return response.data;
     } catch (error) {
-      this.logger.error(
-        `Error updating price for product ${productId}:`,
-        error.message,
-      );
-      throw new Error(`Failed to update price: ${error.message}`);
+      this.logger.error(`Error updating price for product ${productId}:`, error.message);
+      throw error;
     }
   }
 
   /**
-   * Update a single product with comprehensive data
+   * Update product with custom data
    */
   async updateProduct(
     productId: number,
@@ -362,32 +374,22 @@ export class WooCommerceService {
   ): Promise<WooCommerceProduct> {
     try {
       await this.initializeConfig();
+      
       if (!this.axiosInstance) {
-        throw new Error('WooCommerce configuration not available');
+        throw new Error('WooCommerce not configured properly');
       }
 
-      // Filter out undefined values
-      const cleanUpdateData = Object.fromEntries(
-        Object.entries(updateData).filter(([_, value]) => value !== undefined)
-      );
-
-      this.logger.log(`Updating WooCommerce product ${productId} with data:`, cleanUpdateData);
-
-      const response = await this.axiosInstance.put(`/products/${productId}`, cleanUpdateData);
-
-      this.logger.log(`Successfully updated WooCommerce product ${productId}`);
+      const response = await this.axiosInstance.put(`/products/${productId}`, updateData);
+      this.logger.log(`Updated product ${productId}`);
       return response.data;
     } catch (error) {
-      this.logger.error(
-        `Error updating WooCommerce product ${productId}:`,
-        error.response?.data || error.message,
-      );
-      throw new Error(`Failed to update product ${productId}: ${error.message}`);
+      this.logger.error(`Error updating product ${productId}:`, error.message);
+      throw error;
     }
   }
 
   /**
-   * Update product tags in WooCommerce
+   * Update product tags
    */
   async updateProductTags(
     productId: number,
@@ -395,32 +397,28 @@ export class WooCommerceService {
   ): Promise<WooCommerceProduct> {
     try {
       await this.initializeConfig();
+      
       if (!this.axiosInstance) {
-        throw new Error('WooCommerce configuration not available');
+        throw new Error('WooCommerce not configured properly');
       }
 
-      // Convert supplier names to tag objects for WooCommerce
       const tagObjects = tags.map(tag => ({ name: tag }));
-
-      const response = await this.axiosInstance.put(`/products/${productId}`, {
+      
+      const updateData = {
         tags: tagObjects,
-      });
+      };
 
-      this.logger.log(
-        `Updated tags for product ${productId}: [${tags.join(', ')}]`,
-      );
+      const response = await this.axiosInstance.put(`/products/${productId}`, updateData);
+      this.logger.log(`Updated tags for product ${productId}`);
       return response.data;
     } catch (error) {
-      this.logger.error(
-        `Error updating tags for product ${productId}:`,
-        error.response?.data || error.message,
-      );
-      throw new Error(`Failed to update tags for product ${productId}: ${error.message}`);
+      this.logger.error(`Error updating tags for product ${productId}:`, error.message);
+      throw error;
     }
   }
 
   /**
-   * Update multiple products in bulk
+   * Bulk update products
    */
   async updateProductsBulk(
     updates: Array<{
@@ -437,26 +435,25 @@ export class WooCommerceService {
   ): Promise<WooCommerceProduct[]> {
     try {
       await this.initializeConfig();
+      
       if (!this.axiosInstance) {
-        throw new Error('WooCommerce configuration not available');
+        throw new Error('WooCommerce not configured properly');
       }
-
-      this.logger.log(`Bulk updating ${updates.length} WooCommerce products`);
 
       const response = await this.axiosInstance.post('/products/batch', {
         update: updates,
       });
-
-      this.logger.log(`Successfully bulk updated ${updates.length} products`);
-      return response.data.update;
+      
+      this.logger.log(`Bulk updated ${updates.length} products`);
+      return response.data.update || [];
     } catch (error) {
-      this.logger.error('Error bulk updating products:', error.response?.data || error.message);
-      throw new Error(`Failed to bulk update products: ${error.message}`);
+      this.logger.error('Error bulk updating products:', error.message);
+      throw error;
     }
   }
 
   /**
-   * Sync product data with calculated prices
+   * Sync product with calculated price
    */
   async syncProductWithCalculatedPrice(
     productId: number,
@@ -464,71 +461,71 @@ export class WooCommerceService {
     stockQuantity: number,
   ): Promise<WooCommerceProduct> {
     try {
-      const response = await this.axiosInstance.put(`/products/${productId}`, {
+      const updateData = {
         regular_price: calculatedPrice.toString(),
+        price: calculatedPrice.toString(),
         stock_quantity: stockQuantity,
         manage_stock: true,
-        stock_status: stockQuantity > 0 ? 'instock' : 'outofstock',
-      });
+        stock_status: (stockQuantity > 0 ? 'instock' : 'outofstock') as 'instock' | 'outofstock' | 'onbackorder',
+      };
 
-      this.logger.log(
-        `Synced product ${productId} with calculated price ${calculatedPrice}`,
-      );
-      return response.data;
+      return await this.updateProduct(productId, updateData);
     } catch (error) {
-      this.logger.error(`Error syncing product ${productId}:`, error.message);
-      throw new Error(`Failed to sync product ${productId}: ${error.message}`);
+      this.logger.error(`Error syncing product ${productId} with calculated price:`, error.message);
+      throw error;
     }
   }
 
   /**
-   * Get products that need synchronization
+   * Get products that need sync (placeholder implementation)
    */
   async getProductsNeedingSync(): Promise<WooCommerceProduct[]> {
     try {
-      const response = await this.axiosInstance.get('/products', {
-        params: {
-          status: 'publish',
-          per_page: 100,
-          meta_key: 'needs_sync',
-          meta_value: 'true',
-        },
-      });
-
-      return response.data;
+      // This is a placeholder implementation
+      // In a real scenario, you might want to compare with your local database
+      // and return products that have different prices or stock levels
+      
+      const products = await this.getAllProducts(1, 50);
+      
+      // For now, return all products as needing sync
+      // You can implement your own logic here
+      return products;
     } catch (error) {
-      this.logger.error('Error fetching products needing sync:', error.message);
-      throw new Error(
-        `Failed to fetch products needing sync: ${error.message}`,
-      );
+      this.logger.error('Error getting products needing sync:', error.message);
+      return [];
     }
   }
 
   /**
-   * Update configuration from settings
+   * Update config from settings service
    */
   async updateConfigFromSettings(): Promise<void> {
     try {
-      const wooSettings = await this.settingsService.getWooCommerceSettings();
-      this.config = {
-        url: wooSettings.woocommerce_api_url || 'https://example.com',
-        consumerKey: wooSettings.woocommerce_consumer_key || '',
-        consumerSecret: wooSettings.woocommerce_consumer_secret || '',
-      };
-      this.setupAxiosInstance();
-      this.logger.log('WooCommerce configuration updated from settings');
+      const settings = await this.settingsService.getWooCommerceSettings();
+      
+      if (settings.woocommerce_api_url && settings.woocommerce_consumer_key && settings.woocommerce_consumer_secret) {
+        this.config = {
+          url: settings.woocommerce_api_url,
+          consumerKey: settings.woocommerce_consumer_key,
+          consumerSecret: settings.woocommerce_consumer_secret,
+        };
+        
+        this.setupAxiosInstance();
+        this.logger.log('WooCommerce configuration updated from settings');
+      } else {
+        this.logger.warn('WooCommerce settings are incomplete');
+      }
     } catch (error) {
-      this.logger.error('Error updating WooCommerce config:', error.message);
-      throw new Error(`Failed to update WooCommerce config: ${error.message}`);
+      this.logger.error('Error updating WooCommerce config from settings:', error.message);
+      throw error;
     }
   }
 
   /**
-   * Check if a product exists in WooCommerce
+   * Check if product exists
    */
   async checkProductExists(productId: number): Promise<boolean> {
     try {
-      // Ensure config is initialized
       await this.initializeConfig();
       
       if (!this.axiosInstance) {
@@ -536,7 +533,6 @@ export class WooCommerceService {
         throw new Error('WooCommerce configuration is missing');
       }
 
-      // Validate that we have proper credentials
       if (!this.config.consumerKey || !this.config.consumerSecret || this.config.url === 'https://example.com') {
         this.logger.error('WooCommerce credentials are not properly configured');
         throw new Error('WooCommerce credentials are missing or invalid');
@@ -544,18 +540,15 @@ export class WooCommerceService {
 
       const response = await this.axiosInstance.get(`/products/${productId}`);
       return response.status === 200;
-    } catch (error) {
+    } catch (error: any) {
       if (error.response?.status === 404) {
-        // Product not found
         return false;
       }
       
-      // For configuration errors, throw them so the calling function can handle
       if (error.message.includes('configuration') || error.message.includes('credentials')) {
         throw error;
       }
       
-      // Log other errors but don't throw
       this.logger.warn(`Error checking product ${productId} existence: ${error.message}`);
       return false;
     }

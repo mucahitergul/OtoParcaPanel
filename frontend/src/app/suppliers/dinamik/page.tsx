@@ -50,6 +50,9 @@ interface Product {
   dinamik_price?: number;
   dinamik_stock?: number;
   dinamik_last_updated?: string;
+  basbug_price?: number;
+  basbug_stock?: number;
+  basbug_last_updated?: string;
   dogus_price?: number;
   dogus_stock?: number;
   dogus_last_updated?: string;

@@ -124,11 +124,11 @@ export class ProductSyncService {
           }
 
           // Check if we have more pages
-          hasMoreProducts = response.pagination.hasNextPage;
+          hasMoreProducts = page < response.totalPages;
           page++;
 
           this.logger.log(
-            `Processed page ${page - 1}/${response.pagination.totalPages} - ` +
+            `Processed page ${page - 1}/${response.totalPages} - ` +
               `${products.length} products`,
           );
 
@@ -465,7 +465,7 @@ export class ProductSyncService {
 
       // Get total product count first
       const totalResponse = await this.wooCommerceService.getProductsWithPagination(1, 1);
-      progress.totalProducts = totalResponse.pagination.totalProducts;
+      progress.totalProducts = totalResponse.totalProducts;
 
       let page = 1;
       let hasMoreProducts = true;
@@ -540,7 +540,7 @@ export class ProductSyncService {
           page++;
 
           // Check if we have more products
-          hasMoreProducts = page <= response.pagination.totalPages;
+          hasMoreProducts = page <= response.totalPages;
 
           // Longer delay between pages
           await this.delay(200);
